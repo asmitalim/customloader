@@ -1,0 +1,29 @@
+high level steps:
+
+
+0. understanding running process structure and loadable ELF file
+    execve understand
+    understanding address space of running process /proc.
+    understand elf file of current processes
+    parameters passed to running process(any additional parameters)
+
+1. read ELF file (section,header(done),program(done), symbol tables)
+2. output contents as sanity check 
+3. handcraft regions it wants 
+    (prepare segment for load)
+    decide from where to allocate for each segment
+    check for overlap with existing memory
+    relocate (???)
+    apply protection
+4. handcraft dynamic parameters and stack to pass
+    stack
+    arguments
+    environment
+    aux variables (??)
+5. jump to ELF file start
+    embedded assembly (???)
+6. start executing
+7. handle signals
+8. dynamic paging
+9. hybrid loader (reach goal)
+
