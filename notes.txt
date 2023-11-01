@@ -27,3 +27,5 @@ high level steps:
 8. dynamic paging
 9. hybrid loader (reach goal)
 
+#00     .note.gnu.property .note.gnu.build-id .note.ABI-tag __libc_freeres_fn .rela.plt .init .plt 
+   #01     .text .fini 
