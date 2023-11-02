@@ -5,6 +5,7 @@
 #include <elf.h>
 #include <assert.h>
 #include <stdlib.h>
+#include<string.h>
 #define PF_X (1 << 0) /* Segment is executable */
 #define PF_W (1 << 1) /* Segment is writable */
 #define PF_R (1 << 2) /* Segment is readable */
@@ -24,7 +25,71 @@ void displayaddressspace()
     return;
 }
 
-int main(int argc, char **argv)
+void *allocatestack(size_t size)
+{
+    unsigned long stackprots = PROT_NONE;
+    stackprots |= PROT_READ;
+    stackprots |= PROT_WRITE;
+
+    unsigned long stackflags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK |
+                               MAP_GROWSDOWN | MAP_POPULATE;
+    void *stackpointer = mmap(NULL, size, stackprots, stackflags, -1, 0L);
+    if (stackpointer == MAP_FAILED)
+    {
+        perror("Mmap of stack!  \n");
+        return NULL;
+    }
+    return stackpointer + size;
+}
+
+void* populatestack(void* sp, int argc, char **argv, char **envp)
+{   
+    long stackbytesneeded=0;
+    stackbytesneeded+=sizeof(uint64_t); //argc
+    printf("Argc value is : %d \n", argc);
+    stackbytesneeded+= (sizeof(uint64_t)*argc); //argv pointers
+    printf("After argc: Stack bytes needed: %ld \n", stackbytesneeded);
+
+    for (int i = 0; i < argc; i++)
+    {
+        printf("Argv[%d] is %s \n", i, argv[i]);
+        stackbytesneeded+= (strlen(argv[i])+1);
+    }
+
+    printf("After argv: Stack bytes needed: %ld \n", stackbytesneeded);
+    //TODO: is argv null terminated??
+
+    char **iter = envp;
+    long envcount=0;
+    for (; *iter != NULL; iter++)
+    {
+        printf("Env variables value is %s \n", *iter);
+        stackbytesneeded+=(strlen(*iter)+1);
+        envcount++;
+    }
+    printf("Count of env variables: %ld \n", envcount);
+    stackbytesneeded+= (sizeof(uint64_t)*(envcount+1)); //+1 for NULL pointer
+
+    printf("SAfter envp: Stack bytes needed: %ld \n", stackbytesneeded);
+
+
+    iter++;
+
+    Elf64_auxv_t *auxptr;
+    auxptr = (Elf64_auxv_t *)iter;
+    long auxcount=0;
+    for (; auxptr->a_type != AT_NULL; auxptr++)
+    {
+        auxcount++;
+        printf("Aux contents are type:%lx and value:%lx \n", auxptr->a_type, auxptr->a_un.a_val);
+    }
+    stackbytesneeded+= ((auxcount+1)*sizeof(Elf64_auxv_t)); //+1 for NULL aux struct
+    printf("Count of env variables: %ld \n", auxcount);
+    printf("After auxv: Stack bytes needed: %ld \n", stackbytesneeded);
+    return sp;
+}
+
+int main(int argc, char **argv, char** envp)
 {
     int fd;
     int ret;
@@ -130,9 +195,9 @@ int main(int argc, char **argv)
             printf("Mmap start address=%lx end address=%lx mapsize=%lx prot=%lx flags=%lx fd=%d offset=%lx \n",
                    filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
             void *map_pointer;
-            map_pointer = mmap((void*)filemapstart, filemapsize, fileprot, fileflags, fd, filemapoffset);
+            map_pointer = mmap((void *)filemapstart, filemapsize, fileprot, fileflags, fd, filemapoffset);
             if (map_pointer == MAP_FAILED)
-            {   
+            {
                 perror("Mmap!");
                 printf("Map failed for region %d", i);
             }
@@ -158,7 +223,7 @@ int main(int argc, char **argv)
 
                     map_pointer = mmap((void *)anonmapstart, anonmapsize, anonprot, anonflags, -1, 0L);
                     if (map_pointer == MAP_FAILED)
-                    {   
+                    {
                         perror("Anon map!");
                         printf("Anon map failed for region %d", i);
                     }
@@ -167,5 +232,23 @@ int main(int argc, char **argv)
             printf("\n");
         }
     }
+    void *sp = allocatestack(20 * PAGE_SIZE);
+    if (sp == NULL)
+    {
+        printf("Stack not allocated! \n");
+    }
+    else
+    {
+        printf("Value of stack pointer: %0lx : %0lx \n", sp - 20 * PAGE_SIZE, sp);
+    }
     displayaddressspace();
+    void* newsp= populatestack(sp, argc, argv, envp);
+    if (newsp == NULL)
+    {
+        printf("Stack not populated! \n");
+    }
+    else
+    {
+        printf("Value of stack pointer: %0lx : %0lx \n", newsp - 20 * PAGE_SIZE, newsp);
+    }
 }
