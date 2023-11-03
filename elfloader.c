@@ -12,6 +12,15 @@
 #define PAGE_MASK 0xFFF
 #define PAGE_SIZE 0x1000
 
+
+
+void displayaddressspace() ;
+void *allocatestack(size_t size) ;
+void *populatestack(void* sp, int argc, char **argv, char **envp) ;
+void stack_check(void* top_of_stack, uint64_t argc, char** argv) ;
+int main(int argc, char **argv, char** envp) ;
+
+
 void displayaddressspace() {
     FILE *fp;
     char buffer[5000];
@@ -43,11 +52,11 @@ void *allocatestack(size_t size) {
 
 
 
-void* populatestack(void* sp, int argc, char **argv, char **envp) {
+void* populatestack(void* passedtopofthestack, int argc, char **argv, char **envp) {
     /*
     ** algo
 
-    			sp  is current stack pointing to nowhere.
+    			passedtopofthestack  is current stack pointing to nowhere.
 
     			- calculate the size of stack required
     					argcBytes
@@ -122,6 +131,12 @@ void* populatestack(void* sp, int argc, char **argv, char **envp) {
     printf("After envp:ptr*%d=(%d) str(%d) Stackbytes needed: %ld \n", envcount,envptrbytes,envstrbytes,stackbytesneeded);
 
 
+
+
+
+
+
+
     iter++; // advance the last null pointer. 
 
 
@@ -144,11 +159,237 @@ void* populatestack(void* sp, int argc, char **argv, char **envp) {
     printf("After auxv:Total Auxs:%d, auxbytes:%d,  Stack bytes needed: %ld \n", auxcount, auxbytes,stackbytesneeded);
 
 
-    return sp;
+	// example  bytesneed = 53 , bytes required to be 8 bytes aligned 
+	int padbytes = 8 - stackbytesneeded%8 ; 
+    stackbytesneeded += ( padbytes ) ; 
+	assert( (stackbytesneeded % 8 ) == 0);
+
+
+
+	
+	void *topofthestack = passedtopofthestack - stackbytesneeded  ;
+
+
+	void  *stackptr = topofthestack ; // we do not want to disturb topofthestack ;
+
+
+	assert( stackbytesneeded == (argcbytes+argvbytes + envptrbytes + auxbytes + argvstrbytes + envstrbytes + padbytes ));
+	// argc 
+	void *stackargcptr 		= topofthestack ; 
+	void *stackargvptr 		= stackargcptr + argcbytes ; 
+	void *stackenvptr  		= stackargvptr + argvbytes ;  
+	void *stackauxptr  		= stackenvptr + envptrbytes;
+	void *stackargvstrptr 	= stackauxptr + auxbytes ; 
+	void *stackenvstrptr 	= stackargvstrptr + argvstrbytes ; 
+	void *stackend   		= stackenvstrptr + envstrbytes ; 
+	void *stackendpadded 	= stackend + padbytes ; 
+
+
+	printf("\n\n\n");
+	printf("passedtopofthestack %p\n",passedtopofthestack);
+	printf("stackbytesneed %ld\n",stackbytesneeded);
+	printf("padbytes %d\n",padbytes);
+	printf("\n\n");
+
+	printf("%p:topofthestack:\n" , topofthestack) ; 
+	printf("%p:stackargcptr:\n" , stackargcptr);
+	printf("%p:stackargvptr:	+(%d)\n" 	,  stackargvptr , argcbytes ); 
+	printf("%p:stackenvptr: 	+(%d)\n"	,  stackenvptr , argvbytes) ;  
+	printf("%p:stackauxptr: 	+(%d)\n"  	,  stackauxptr, envptrbytes);
+	printf("%p:stackargvstrptr: +(%d)\n" , stackargvstrptr , auxbytes) ; 
+	printf("%p:stackenvstrptr: 	+(%d)\n" ,  stackenvstrptr , argvstrbytes ); 
+	printf("%p:stackend:	+(%d)\n"   	,  stackend , envstrbytes ); 
+	printf("%p:stackendpadded: 	+(%d)\n" ,  stackendpadded,padbytes);
+
+	assert ( stackendpadded == passedtopofthestack ) ;
+
+
+	// Second pass ( now the layout is ready so populate the stack 
+
+	// copy the argc on the stack 
+	*((uint64_t *)stackargcptr) = (uint64_t) argc ; 
+
+
+
+	// copy the argv on the stack
+
+	char **tempargv = (char **)stackargvptr ; 
+	char *tempargvstr = (char *)stackargvstrptr ;
+
+	char *cptr = (char *)stackargvstrptr ; 
+	int  nargvbytes =0;
+    for (int i = 0; i < argc; i++) {
+        printf("copying Argv[%d] is %s \n", i, argv[i]);
+		strcpy(cptr,argv[i]);
+
+		tempargv[i] = cptr ; 
+		cptr += strlen(argv[i]) ; cptr++ ; 
+
+        nargvbytes += (strlen(argv[i])+1);
+    }
+	tempargv[argc] = (char *) NULL ; 
+
+	// validate the argv
+
+
+	do {
+		char **testargv = (char **)stackargvptr ; 
+		int i ;
+		for (i= 0; i < argc ; i ++) {
+			printf("argv[%d] 's %p  value [%s]\n",i,testargv[i],testargv[i] );
+		}
+		printf("argv[%d] 's %p  value [%s]\n",i,testargv[i],"" );
+
+	} while(0);
+
+
+	// copy the environment pointers and strings  on the stack 
+
+
+    char **tempiter = envp;
+
+	char **tempenv = (char **)stackenvptr ; 
+	char *tempenvstr = (char *)stackenvstrptr ;
+
+	char *eptr = (char *)stackenvstrptr ; 
+	int  nenvbytes =0;
+
+	int envindex = 0 ; 
+    for (; *tempiter != NULL; tempiter++) {
+        printf("copying Env variables value is %s \n", *tempiter);
+		strcpy(eptr,*tempiter);
+		tempenv[envindex] = eptr ; 
+		nenvbytes += (strlen(*tempiter)+1);
+		eptr+=(strlen(*tempiter)); eptr++ ;
+		envindex ++ ; 
+    }
+	tempenv[envindex] = (char *)NULL ; 
+
+	// validate the envp
+	do {
+		char **testenv = (char **)stackenvptr ; 
+		int i ;
+		for (i= 0; i < envindex ; i ++) {
+			printf("envp[%d] 's %p  value [%s]\n",i,testenv[i],testenv[i] );
+		}
+		printf("envp[%d] 's %p  value [%s]\n",i,testenv[i],"" );
+	} while(0);
+
+
+
+
+
+	tempiter++ ; //for aux 
+
+	// copy Aux to stack
+
+	
+    Elf64_auxv_t *tempauxptr;
+    tempauxptr = (Elf64_auxv_t *)tempiter;
+
+	Elf64_auxv_t *aptr = (Elf64_auxv_t *) stackauxptr ; 
+
+
+	int tempauxcount  = 0 ; 
+	int tempauxbytes = 0 ;
+    for (; tempauxptr->a_type != AT_NULL; aptr++,tempauxptr++) {
+        printf("Aux contents copied to stack  type:%lx and value:%lx \n", tempauxptr->a_type, tempauxptr->a_un.a_val);
+
+		aptr->a_type = tempauxptr->a_type ;
+		aptr->a_un.a_val = tempauxptr->a_un.a_val ;
+
+        tempauxcount++;
+		tempauxbytes += sizeof(Elf64_auxv_t) ; 
+    }
+	aptr->a_type = tempauxptr->a_type ;
+	aptr->a_un.a_val = tempauxptr->a_un.a_val ;
+	tempauxbytes += sizeof(Elf64_auxv_t) ; 
+
+	assert(tempauxbytes == auxbytes );
+
+
+	do {
+		Elf64_auxv_t *testaux = (Elf64_auxv_t *)stackauxptr ; 
+		int i ;
+		for (i= 0; i <= tempauxcount ; testaux++,i ++) {
+        	printf("auxv[%d]:type:%lx and value:%lx \n", i,testaux->a_type, testaux->a_un.a_val);
+		}
+	} while(0);
+
+
+
+
+	/*------------------- copy pasted 
+    Elf64_auxv_t *auxptr;
+    auxptr = (Elf64_auxv_t *)iter;
+    int 	auxcount=0;
+	int  	auxbytes=0;
+
+    for (; auxptr->a_type != AT_NULL; auxptr++) {
+        printf("Aux contents are type:%lx and value:%lx \n", auxptr->a_type, auxptr->a_un.a_val);
+        auxcount++;
+		auxbytes += sizeof(Elf64_auxv_t) ; 
+    }
+	auxbytes += sizeof(Elf64_auxv_t) ; // add a last entry which has a type AT_NULL
+
+	----------------------------*/
+
+
+
+    return topofthestack;
 }
 
 
 
+
+/**
+ * Routine for checking stack made for child program.
+ * top_of_stack: stack pointer that will given to child program as %rsp
+ * argc: Expected number of arguments
+ * argv: Expected argument strings
+ */
+void stack_check(void* top_of_stack, uint64_t argc, char** argv) {
+	printf("----- stack check -----\n");
+
+	assert(((uint64_t)top_of_stack) % 8 == 0);
+	printf("top of stack is 8-byte aligned\n");
+
+
+	uint64_t* stack = top_of_stack;
+	uint64_t actual_argc = *(stack++);
+	printf("argc: %lu\n", actual_argc);
+	assert(actual_argc == argc);
+
+	for (int i = 0; i < argc; i++) {
+		char* argp = (char*)*(stack++);
+		assert(strcmp(argp, argv[i]) == 0);
+		printf("arg %d: %s\n", i, argp);
+	}
+
+
+
+
+	// Argument list ends with null pointer
+	assert(*(stack++) == 0);
+
+
+	int envp_count = 0;
+	while (*(stack++) != 0)
+		envp_count++;
+
+	printf("env count: %d\n", envp_count);
+
+
+	Elf64_auxv_t* auxv_start = (Elf64_auxv_t*)stack;
+	Elf64_auxv_t* auxv_null = auxv_start;
+	while (auxv_null->a_type != AT_NULL) {
+		auxv_null++;
+	}
+	printf("aux count: %lu\n", auxv_null - auxv_start);
+	printf("----- end stack check -----\n");
+	//TODO
+	return ; 
+}
 
 
 
@@ -291,7 +532,7 @@ int main(int argc, char **argv, char** envp) {
     if (stacklowest == NULL) {
         printf("Stack not allocated! \n");
     } else {
-        printf("Value of stack pointer: %p : %p \n", stacklowest,stacklowest + stackbytesrequired);
+        printf("after allocate:Value of stack pointer: %p : %p \n", stacklowest,stacklowest + stackbytesrequired);
     }
 	
 	void *topofthestack = stacklowest + stackbytesrequired  - 64 ; // 64 bytes is reserved for stack overflow
@@ -304,7 +545,9 @@ int main(int argc, char **argv, char** envp) {
     if (newsp == NULL) {
         printf("Stack not populated! \n");
     } else {
-        printf("Value of stack pointer: %p\n", newsp );
+        printf("after populate: Value of stack pointer: %p\n", newsp );
     }
+
+	stack_check(newsp,argc,argv);
 
 }
