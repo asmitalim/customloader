@@ -16,4 +16,5 @@ clean:
 	rm -f toload
 	rm -f *.o
 	rm -f elfloader
+	rm -f *.orig
 
