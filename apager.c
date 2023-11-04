@@ -319,19 +319,30 @@ void* populatestack(void* passedtopofthestack, int argc, char **argv, char **env
 }
 
 
+#ifdef DEMANDPAGING
+int fd;
+Elf64_Ehdr elfheader;
+Elf64_Phdr *programs;
+Elf_Auxv auxvector ;
+#else
 
+
+#endif
 
 
 
 
 
 int main(int argc, char **argv, char** envp) {
-    int fd;
     int ret;
+#ifdef DEMANDPAGING
+#else
+    int fd;
     Elf64_Ehdr elfheader;
     Elf64_Phdr *programs;
-
     Elf_Auxv auxvector ;
+#endif
+
 
     void *entry = NULL ;
     void *newsp = NULL  ;
@@ -368,8 +379,8 @@ int main(int argc, char **argv, char** envp) {
     }
     printf("\n");
     printf("Etype is %x \n", elfheader.e_type);
+    printf("Ephoff is %lx \n", elfheader.e_phoff);
     printf("Emachine is %x \n", elfheader.e_machine);
-    printf("Eentry is %lx \n", elfheader.e_entry);
     printf("Ephoff is %lx \n", elfheader.e_phoff);
     printf("Eshoff is %lx \n", elfheader.e_shoff);
     printf("Eflags is %x \n", elfheader.e_flags);
@@ -378,6 +389,7 @@ int main(int argc, char **argv, char** envp) {
     printf("Eshentsize is %x \n", elfheader.e_shentsize);
     printf("Ephnum is %x \n", elfheader.e_shnum);
     */
+    printf("Eentry is %lx \n", elfheader.e_entry);
 
     if( elfheader.e_type == ET_EXEC ) {
         NEW_AUX_ENTRY(&auxvector,AT_ENTRY, elfheader.e_entry);
@@ -409,13 +421,42 @@ int main(int argc, char **argv, char** envp) {
         //printf("Pflags %x,", programs[i].p_flags);
         //printf("Poffset %lx,", programs[i].p_offset);
         //printf("Pvaddr %lx,", programs[i].p_vaddr);
-        // printf("Ppaddr %lx \n", programs[i].p_paddr);
+        //printf("Ppaddr %lx \n", programs[i].p_paddr);
         //printf("Pfilesz %lx,", programs[i].p_filesz);
         //printf("Pmemsz %lx,", programs[i].p_memsz);
         //printf("Palign %lx \n", programs[i].p_align);
 
 
         if (programs[i].p_type == PT_LOAD) {
+
+#ifdef DEMANDPAGING
+			int rightprogram = 0;
+			int programtoload = -1 ; 
+			do {
+				uint64_t entry = elfheader.e_entry ; 
+				uint64_t startoffset = programs[i].p_vaddr ; 
+				uint64_t endoffset   = programs[i].p_vaddr + programs[i].p_filesz ; 
+
+				uint64_t pageentrystart ;
+				uint64_t pageentryend ;
+
+				int programtoload ; 
+
+				printf("-->		Entry = %lx, start = %lx, end = %lx\n",entry,startoffset,endoffset);
+				if( (entry >= startoffset ) && ( entry < endoffset )) rightprogram = 1 ; 
+				if( rightprogram) {
+					programtoload = i ; 
+					printf("			-> Correct Program[%d] is %d\n",programtoload,rightprogram);
+					pageentrystart = entry & ~PAGE_MASK ; 
+					pageentryend   = ( entry + PAGE_SIZE) & ~PAGE_MASK ; 
+					printf("		<|(:-b)= first page is ready for mmap ( address = %lx, size = %lx )\n", pageentrystart, pageentryend-pageentrystart );
+				}
+			}
+			while(0);
+#else
+#endif
+
+
 
             uint64_t loadaddress = programs[i].p_vaddr;
             uint64_t filemapstart = loadaddress & ~PAGE_MASK;
@@ -455,6 +496,8 @@ int main(int argc, char **argv, char** envp) {
 
             void *map_pointer;
 
+			// for demand paging, call mmap for the interesting program only and that too for 1 page 
+			// keep the info in some table ( start, end, filemapoffset ) 
             map_pointer = mmap((void *)filemapstart, filemapsize, fileprot, fileflags, fd, filemapoffset);
 
             if (map_pointer == MAP_FAILED) {
