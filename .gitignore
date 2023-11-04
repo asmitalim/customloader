@@ -1,0 +1,7 @@
+*.o
+limloader
+hello
+toload
+*.orig
+apager
+apager.ammi
