@@ -367,11 +367,6 @@ ASTable  addressspaces ;
 	} while(0);
 
 
-#else
-
-
-#endif
-
 
 static void demandpager(int sig, siginfo_t *si, void *contexts) {
 	void *ret;
@@ -384,7 +379,69 @@ static void demandpager(int sig, siginfo_t *si, void *contexts) {
 	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
 	sprintf(buff,"Demand pager: fault address: %p, pagestart %lx, pageend %lx\n", (void *)faultingaddress, pagestart,pageend);
 	printf("%s",buff);
+
+	//TODO use of lock to access global structure 
+	//	- may not be required  as there is no clash ( it is used for readonly by handler )
+
+
+	// Check if the faulting address in the AS tables if so mmap it else exit gracefully 
+	
+	ASEntry *asptr ;
+	int found = -1 ;
+	for ( int i = 0 ; i < addressspaces.count ; i ++) {
+		asptr =  &addressspaces.entries[i] ;
+		if( (faultingaddress >= (asptr -> pagestart)) && ( faultingaddress < (asptr->pagestart + asptr->size))) {
+			found = i ; 
+			break ;
+		}
+	}
+	if( found == -1) {
+		printf("Error: unhandled sigsegv fault at %p\n, exiting...",si->si_addr);
+		exit(1);
+	}
+
+	asptr =  &addressspaces.entries[found] ;
+
+
+	uint64_t pageentrystart ;
+	uint64_t pageentryoffset ;
+	uint64_t fileprot ;
+	uint64_t fileflags ;
+
+
+	pageentrystart = pagestart ; 
+	pageentryoffset = pagestart - asptr->pagestart + asptr->fileoffset ;
+	fileprot = asptr->prots ; 
+	fileflags = asptr->flags ; 
+
+
+   	void * map_pointer ;
+
+
+   	printf("demandpaging: entrypage mmap( start address=%lx end address=%lx mapsize=%lx prot=%lx flags=%lx fd=%d offset=%lx) \n",
+                   	pageentrystart, pageentrystart+PAGE_SIZE, PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
+
+	map_pointer = mmap((void *)pageentrystart, (uint64_t)PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
+	if (map_pointer == MAP_FAILED) {
+		perror("mmap()");
+		fprintf(stderr,"program can not be loaded as there is a clash of address[%p:%p] program %d\n",
+			(void *)pageentrystart, (void *)pageentrystart+PAGE_SIZE, found);
+		close(fd);
+		free(programs);
+	
+		exit(1);
+	}
+
+	//TODo
+	//exit(1);
+
 }
+
+
+#endif
+
+
+
 
 
 
@@ -682,8 +739,11 @@ int main(int argc, char **argv, char** envp) {
     } // For each program
     printf("\n");
 
+#ifdef DEMANDPAGING
+#else
     free(programs);
     close(fd);
+#endif
 
 
 
