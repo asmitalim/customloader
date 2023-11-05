@@ -15,7 +15,7 @@
 
 void displayaddressspace() {
     FILE *fp;
-    char buffer[5000];
+    char buffer[5020];
     fp = fopen("/proc/self/maps", "r");
     while (fgets(buffer, 5000, fp)) {
         fputs(buffer, stdout);
@@ -367,24 +367,52 @@ ASTable  addressspaces ;
 	} while(0);
 
 
+#define PRINT_ASTABLE(masptr) \
+	do 	{\
+		for(int i = 0 ; i< MAX_AS_ENTRIES ; i++) { \
+			printf("Astable[%d] start:%lx, size:%lx, end:%lx, prots:%lx, flags=%lx, offset=%lx\n",\
+			i,\
+			(masptr)->entries[i].pagestart, \
+			(masptr)->entries[i].size, \
+			(masptr)->entries[i].pagestart + (masptr)->entries[i].size, \
+			(masptr)->entries[i].prots ,	\
+			(masptr)->entries[i].flags ,	\
+			(masptr)->entries[i].fileoffset );	\
+		} \
+		printf("Total N = %d\n", (masptr)->count );  \
+	} while(0);
+
+
 
 static void demandpager(int sig, siginfo_t *si, void *contexts) {
 	void *ret;
-	char  buff[100] ;
-	//write(1, "Hello hello\n", strlen("hello);
+
+	char *whywhywhy = "undefined" ; 
+	//printf("signal number: %d signo:%d\n",sig,si->si_signo);
+	switch(si->si_code) {
+		case SI_KERNEL: 
+			whywhywhy = "Signal sent by Kernel";
+			break ;
+		case SI_USER: 
+			whywhywhy = "Signal sent by User";
+			break ;
+		case SEGV_MAPERR: 
+			whywhywhy = "SIGSEV: address not mapped ";
+			break ;
+		case SEGV_ACCERR:
+			whywhywhy = "SIGSEV: invalidpermission for the mapped object";
+			break ;
+	}
 
 	uint64_t faultingaddress = (uint64_t) si->si_addr ; 
-
 	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
 	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
-	sprintf(buff,"Demand pager: fault address: %p, pagestart %lx, pageend %lx\n", (void *)faultingaddress, pagestart,pageend);
-	printf("%s",buff);
 
-	//TODO use of lock to access global structure 
-	//	- may not be required  as there is no clash ( it is used for readonly by handler )
+
 
 
 	// Check if the faulting address in the AS tables if so mmap it else exit gracefully 
+	printf("Demand pager: fault address: %p, pagestart %lx, pageend %lx\n", (void *)faultingaddress, pagestart,pageend);
 	
 	ASEntry *asptr ;
 	int found = -1 ;
@@ -395,8 +423,17 @@ static void demandpager(int sig, siginfo_t *si, void *contexts) {
 			break ;
 		}
 	}
+
+	printf("si->sicode: %d %s\n", si->si_code, whywhywhy);
+	if( si->si_code != SEGV_MAPERR) {
+		printf("Not capable of handling any thing other than SEGV_MAPPER fault:%p\n", si->si_addr);
+		printf("   (found:%d)		pagestart = %lx, pageend = %lx\n", found,pagestart,pageend); 
+		exit(1);
+	}
+
+
 	if( found == -1) {
-		printf("Error: unhandled sigsegv fault at %p\n, exiting...",si->si_addr);
+		printf("Error:unhandled sigsegv fault at fault:%p\n, exiting...",si->si_addr);
 		exit(1);
 	}
 
@@ -431,6 +468,9 @@ static void demandpager(int sig, siginfo_t *si, void *contexts) {
 	
 		exit(1);
 	}
+	printf("map_pointer: %p\n",map_pointer);
+
+	printf("\n-------\n");
 
 	//TODo
 	//exit(1);
@@ -553,7 +593,7 @@ int main(int argc, char **argv, char** envp) {
     n = read(fd, programs, elfheader.e_phentsize * elfheader.e_phnum);
     assert(n == elfheader.e_phentsize * elfheader.e_phnum);
 
-    //displayaddressspace();
+    displayaddressspace();
 
     for (int i = 0; i < elfheader.e_phnum; i++) {
 
@@ -802,7 +842,12 @@ int main(int argc, char **argv, char** envp) {
 
 
 
+    displayaddressspace();
     stackcheck(newsp,argc-1,&argv[1]);
+
+#ifdef DEMANDPAGING
+	PRINT_ASTABLE(&addressspaces);
+#endif
 
 
     //givecontrol(void *programentry, void *topofthestack) ;
