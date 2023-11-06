@@ -2,10 +2,11 @@ all: toload apager hello.static hello.dyn apager.ammi dpager
 	@echo "apager Built"
 
 toload: toload.o
-	gcc -static -o toload toload.o
+	gcc -static -Wl,-z,norelro -o toload toload.o
 
 hello.static:	hello.o
-	gcc -static -o hello.static hello.o
+	gcc -static -Wl,-z,norelro  -o hello.static hello.o
+	nm hello.static | sort > hellosymbols.txt
 
 hello.dyn:	hello.o
 	gcc -o hello.dyn hello.o

@@ -6,8 +6,11 @@
 #include <elf.h>
 #include <assert.h>
 #include <stdlib.h>
+#define __USE_GNU 1  
 #include <string.h>
+// ucontext RIP 
 #include <signal.h>
+#include <sys/ucontext.h>
 
 
 #include "pager.h"
@@ -334,6 +337,7 @@ typedef struct {
 	uint64_t size ;
 	int prots ;
 	int flags ; 
+	int fd ;
 	uint64_t fileoffset ; 
 } ASEntry ; 
 
@@ -344,12 +348,13 @@ typedef struct {
 
 ASTable  addressspaces ; 
 
-#define NEW_AS_ENTRY(masptr, mstart,msize,mprots,mflags,mfileoffset)		\
+#define NEW_AS_ENTRY(masptr, mstart,msize,mprots,mflags,mfd,mfileoffset)		\
 	do	{\
 	(masptr)->entries[(masptr)->count].pagestart = (mstart)	;\
 	(masptr)->entries[(masptr)->count].size = (msize)	;\
 	(masptr)->entries[(masptr)->count].prots = (mprots)	;\
 	(masptr)->entries[(masptr)->count].flags = (mflags)	;\
+	(masptr)->entries[(masptr)->count].fd = (mfd)	;\
 	(masptr)->entries[(masptr)->count].fileoffset = (mfileoffset)	;\
 	(masptr)->count ++ ;\
 	} while(0);
@@ -361,6 +366,7 @@ ASTable  addressspaces ;
 			(masptr)->entries[i].size = 0 ; \
 			(masptr)->entries[i].prots = 0 ; \
 			(masptr)->entries[i].flags = 0 ; \
+			(masptr)->entries[i].fd = 0 ; \
 			(masptr)->entries[i].fileoffset = 0 ; \
 		} \
 		(masptr)->count = 0 ;  \
@@ -370,13 +376,14 @@ ASTable  addressspaces ;
 #define PRINT_ASTABLE(masptr) \
 	do 	{\
 		for(int i = 0 ; i< MAX_AS_ENTRIES ; i++) { \
-			printf("Astable[%d] start:%lx, size:%lx, end:%lx, prots:%x, flags=%x, offset=%lx\n",\
+			printf("Astable[%d] start:%lx, size:%lx, end:%lx, prots:%x, flags=%x, fd=%d offset=%lx\n",\
 			i,\
 			(masptr)->entries[i].pagestart, \
 			(masptr)->entries[i].size, \
 			(masptr)->entries[i].pagestart + (masptr)->entries[i].size, \
 			(masptr)->entries[i].prots ,	\
 			(masptr)->entries[i].flags ,	\
+			(masptr)->entries[i].fd ,	\
 			(masptr)->entries[i].fileoffset );	\
 		} \
 		printf("Total N = %d\n", (masptr)->count );  \
@@ -384,8 +391,8 @@ ASTable  addressspaces ;
 
 
 
-static void demandpager(int sig, siginfo_t *si, void *contexts) {
-	void *ret;
+void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
+
 
 	char *whywhywhy = "undefined" ; 
 	//printf("signal number: %d signo:%d\n",sig,si->si_signo);
@@ -407,7 +414,62 @@ static void demandpager(int sig, siginfo_t *si, void *contexts) {
 	uint64_t faultingaddress = (uint64_t) si->si_addr ; 
 	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
 	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
+	uint64_t  regip     = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_RIP] ;
+	uint64_t  accesserror = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_ERR] ;
 
+	/*
+
+	Linux arch/x86/include/asm/traf_pf.h
+	
+	enum x86_pf_error_code {
+		X86_PF_PROT	=		1 << 0,
+		X86_PF_WRITE	=		1 << 1,
+		X86_PF_USER	=		1 << 2,
+		X86_PF_RSVD	=		1 << 3,
+		X86_PF_INSTR	=		1 << 4,
+		X86_PF_PK	=		1 << 5,
+		X86_PF_SHSTK	=		1 << 6,
+		X86_PF_SGX	=		1 << 15,
+	};
+	*/
+
+
+	/*
+	printf("\n");
+	printf("rip = %lx, faultcode %lx \n",regip, accesserror);
+	if( accesserror & 0x01) 
+		printf("protection ,");
+	else 	
+		printf("mmap ");
+
+	if( accesserror & 0x02) 
+		printf("writeaccess, "); 
+	else 
+		printf("readaccess, "); 
+
+	if( accesserror & 0x04) 
+		printf("usermode ");
+	else
+		printf("kernelaccess ");
+	if( accesserror & 0x010) printf("instruction ");
+	if( accesserror & 0x020) printf("protection-key ");
+	if( accesserror & 0x040) printf("shadowstack ");
+	if( accesserror & 0x8000) printf("SGXMMUfault ");
+	printf("\n");
+	*/
+
+
+
+	if (faultingaddress == (uint64_t)NULL ) {
+		// handle null pointer
+		if( regip == 0 ) {
+			printf("executing instructions at null pointer\n");
+			exit(1);
+		} else {
+			printf("abort() code dump --- with fault address: %lx\n", faultingaddress);
+			abort();
+		}
+	}
 
 
 
@@ -426,14 +488,14 @@ static void demandpager(int sig, siginfo_t *si, void *contexts) {
 
 	//printf("si->sicode: %d %s\n", si->si_code, whywhywhy);
 	if( si->si_code != SEGV_MAPERR) {
-		printf("exit(1):Not capable of handling any thing other than SEGV_MAPPER fault:%p\n", si->si_addr);
-		//printf("   (found:%d)		pagestart = %lx, pageend = %lx\n", found,pagestart,pageend); 
+		printf("exit(1):Not capable of handling any thing other than page missing fault:%p\n", si->si_addr);
+		printf("   (found:%d)		pagestart = %lx, pageend = %lx\n", found,pagestart,pageend); 
 		exit(1);
 	}
 
 
 	if( found == -1) {
-		printf("Error:unhandled sigsegv fault at fault:%p\n, exiting...",si->si_addr);
+		printf("exit(1):error: unhandled sigsegv fault any addresspace outside fault:%p\n, exiting...",si->si_addr);
 		exit(1);
 	}
 
@@ -455,9 +517,12 @@ static void demandpager(int sig, siginfo_t *si, void *contexts) {
    	void * map_pointer ;
 
 
-   	printf("demandpaging: entrypage mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+	/*
+   	printf("demandpaging:[%d] entrypage mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+					found,
                    	pageentrystart, pageentrystart+PAGE_SIZE, PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
 
+	*/
 	map_pointer = mmap((void *)pageentrystart, (uint64_t)PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
 	if (map_pointer == MAP_FAILED) {
 		perror("mmap()");
@@ -468,7 +533,7 @@ static void demandpager(int sig, siginfo_t *si, void *contexts) {
 	
 		exit(1);
 	}
-	printf("map_pointer: %p\n",map_pointer);
+	//printf("map_pointer: %p\n",map_pointer);
 
 	//printf("\n-------\n");
 
@@ -501,7 +566,7 @@ int main(int argc, char **argv, char** envp) {
 // Define signal handler
 
  struct sigaction saofdemandpager;
- saofdemandpager.sa_flags = SA_SIGINFO;
+ saofdemandpager.sa_flags = SA_SIGINFO|SA_ONSTACK ;
  saofdemandpager.sa_sigaction = demandpager;
  sigemptyset(&saofdemandpager.sa_mask);
  if (sigaction(SIGSEGV, &saofdemandpager, NULL) == -1){
@@ -679,7 +744,7 @@ int main(int argc, char **argv, char** envp) {
             fileflags |= MAP_FIXED_NOREPLACE;
 
 
-            void *map_pointer;
+            void *map_pointer = (void *)NULL;
 
 #ifdef DEMANDPAGING
 			/*
@@ -709,7 +774,7 @@ int main(int argc, char **argv, char** envp) {
                 	exit(1);
 				}
 			}
-			NEW_AS_ENTRY(&addressspaces, filemapstart,filemapsize,fileprot,fileflags,filemapoffset)	;	
+			NEW_AS_ENTRY(&addressspaces, filemapstart,filemapsize,fileprot,fileflags,fd,filemapoffset)	;	
 
 #else
             printf("filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
@@ -746,6 +811,9 @@ int main(int argc, char **argv, char** envp) {
                     anonflags |= MAP_FIXED_NOREPLACE;
                     anonflags |= MAP_POPULATE;
 
+#ifdef DEMANDPAGING
+					NEW_AS_ENTRY(&addressspaces, anonmapstart,anonmapsize,anonprot,anonflags,-1,0L)	;	
+#else
                     printf("Anonymous  mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
                            anonmapstart, anonmapend, anonmapsize, anonprot, anonflags, -1, 0L);
 
@@ -758,9 +826,15 @@ int main(int argc, char **argv, char** envp) {
                         free(programs);
                         exit(1);
                     }
+#endif
 
 #ifdef DEMANDPAGING
 					// TODO how to handle this for demand paging 
+                    if( anonprot & PROT_WRITE ) {
+                        memset ( (void *) ( programs[i].p_vaddr + programs[i].p_filesz),0UL,
+                                 (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
+
+                    } //resetting to zero
 #else
 					// set the memory to zero for the all the bytes beyond filez and until memsz
                     if( anonprot & PROT_WRITE ) {
