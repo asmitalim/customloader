@@ -11,6 +11,8 @@
 #include <stdint.h>
 
 
-void instrumentstats(char *prefixstring) ;
+void initheaders(char *prefixheader);
+void instrumentstats(char *prefixstring, int headerflag) ;
+
 
 #endif

@@ -811,6 +811,7 @@ int main(int argc, char **argv, char** envp) {
 			uint64_t pageentryoffset ;
 			*/
 
+#ifdef HYBRIDPAGING
 			if(rightprogram) {
 				pageentryoffset = pageentrystart - filemapstart + filemapoffset ;
 
@@ -829,8 +830,10 @@ int main(int argc, char **argv, char** envp) {
 				}
 			}
 			NEW_AS_ENTRY(&addressspaces, filemapstart,filemapsize,fileprot,fileflags,fd,filemapoffset)	;	
-
 #else
+
+			// HYBRID Mapping
+			// leave only allocate only BSS
             printf("filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
                    filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
 
@@ -846,6 +849,27 @@ int main(int argc, char **argv, char** envp) {
                 exit(1);
             }
 #endif
+
+#else
+			// PRELOADED MAP
+            printf("filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+                   filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
+
+            map_pointer = mmap((void *)filemapstart, filemapsize, fileprot, fileflags, fd, filemapoffset);
+
+            if (map_pointer == MAP_FAILED) {
+                perror("mmap()");
+                fprintf(stderr,"program can not be loaded as there is a clash of address[%p:%p] program %d\n",
+                        (void *)filemapstart, (void *)filemapstart+filemapsize, i);
+                close(fd);
+                free(programs);
+
+                exit(1);
+            }
+#endif
+
+
+			// THIS FOR ALL 
 
 
             if (programs[i].p_memsz > programs[i].p_filesz) {

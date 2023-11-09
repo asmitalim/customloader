@@ -27,7 +27,8 @@ int main(int argc, char* argv[], char* envp[]) {
     while(fgets(buffer,5000,fp)) {
         fputs(buffer,stdout);
     }
-	instrumentstats("Argc, Argv, envp and Auxv Display");
+	initheaders("Title");
+	instrumentstats("toload",1);
     return 0;
 
 }
