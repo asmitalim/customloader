@@ -411,16 +411,19 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 			break ;
 	}
 
+	uint64_t faultingaddress = (uint64_t) si->si_addr ; 
 
-	void allocatepage(siginfo_t *siPtr,void *contextPtr) ;
-	allocatepage(si,pagefaultcontext) ;
+	void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext) ;
+
+	allocatepage(faultingaddress,si,pagefaultcontext) ;
+
+
 }
 
 
 
-void allocatepage(siginfo_t *si, void *pagefaultcontext) {
+void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext) {
 
-	uint64_t faultingaddress = (uint64_t) si->si_addr ; 
 	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
 	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
 	uint64_t  regip     = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_RIP] ;
