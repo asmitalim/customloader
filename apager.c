@@ -318,9 +318,6 @@ void* populatestack(void* passedtopofthestack, int argc, char **argv, char **env
 
 
 
-    /*------------------- copy pasted
-    ----------------------------*/
-
 
 
     return topofthestack;
@@ -691,8 +688,8 @@ int main(int argc, char **argv, char** envp) {
     printf("Ephnum is %x \n", elfheader.e_phnum);
     printf("Eshentsize is %x \n", elfheader.e_shentsize);
     printf("Ephnum is %x \n", elfheader.e_shnum);
-    */
     printf("Eentry is %lx \n", elfheader.e_entry);
+    */
 
     if( elfheader.e_type == ET_EXEC ) {
         NEW_AUX_ENTRY(&auxvector,AT_ENTRY, elfheader.e_entry);
@@ -749,15 +746,15 @@ int main(int argc, char **argv, char** envp) {
 
 				int programtoload ; 
 
-				printf("-->		Entry = %lx, start = %lx, end = %lx\n",entry,startoffset,endoffset);
+				//printf("-->		Entry = %lx, start = %lx, end = %lx\n",entry,startoffset,endoffset);
 				if( (entry >= startoffset ) && ( entry < endoffset )) rightprogram = 1 ; 
 				if( rightprogram) {
 					programtoload = i ; 
-					printf("			-> Correct Program[%d] is %d\n",programtoload,rightprogram);
+					//printf("			-> Correct Program[%d] is %d\n",programtoload,rightprogram);
 					pageentrystart = entry & ~PAGE_MASK ; 
 					pageentryend   = ( entry + PAGE_SIZE) & ~PAGE_MASK ; 
 
-					printf("-->		first page is ready for mmap ( address = %lx, size = %lx )\n", pageentrystart, pageentryend-pageentrystart );
+					//printf("-->		first page is ready for mmap ( address = %lx, size = %lx )\n", pageentrystart, pageentryend-pageentrystart );
 				}
 			}
 			while(0);
@@ -887,6 +884,11 @@ int main(int argc, char **argv, char** envp) {
 
 #ifdef DEMANDPAGING
 					// TODO how to handle this for demand paging 
+
+					printf("Demandpaging:Resetting memory for anon %p %08lx \n",
+                         (void *) ( programs[i].p_vaddr + programs[i].p_filesz),
+                                 (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
+
                     if( anonprot & PROT_WRITE ) {
                         memset ( (void *) ( programs[i].p_vaddr + programs[i].p_filesz),0UL,
                                  (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
@@ -894,6 +896,12 @@ int main(int argc, char **argv, char** envp) {
                     } //resetting to zero
 #else
 					// set the memory to zero for the all the bytes beyond filez and until memsz
+
+					printf("NonDemandpaging:Resetting memory for anon %p  %08lx \n",
+                         (void *) ( programs[i].p_vaddr + programs[i].p_filesz),
+                                 (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
+
+
                     if( anonprot & PROT_WRITE ) {
                         memset ( (void *) ( programs[i].p_vaddr + programs[i].p_filesz),0UL,
                                  (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
@@ -966,7 +974,7 @@ int main(int argc, char **argv, char** envp) {
             printf("Stack not populated! \n");
             exit(1);
         } else {
-            printstack((char *) newsp);
+            //printstack((char *) newsp);
         }
     }
 
@@ -975,16 +983,16 @@ int main(int argc, char **argv, char** envp) {
 
 
     //displayaddressspace();
-    stackcheck(newsp,argc-1,&argv[1]);
+    //stackcheck(newsp,argc-1,&argv[1]);
 
 #ifdef DEMANDPAGING
-	PRINT_ASTABLE(&addressspaces);
+	//PRINT_ASTABLE(&addressspaces);
 #endif
 
 
     //givecontrol(void *programentry, void *topofthestack) ;
-    printf("program entry is %p \n", entry);
-    printf("stackpointer  is %p \n",newsp);
+    //printf("program entry is %p \n", entry);
+    //printf("stackpointer  is %p \n",newsp);
 
     //givecontrol(entry, newsp) ;
     starttheprogram(entry, newsp) ;
