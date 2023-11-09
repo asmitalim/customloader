@@ -394,22 +394,31 @@ ASTable  addressspaces ;
 void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 
 
-	char *whywhywhy = "undefined" ; 
+	char *faultreason = "undefined" ; 
 	//printf("signal number: %d signo:%d\n",sig,si->si_signo);
 	switch(si->si_code) {
 		case SI_KERNEL: 
-			whywhywhy = "Signal sent by Kernel";
+			faultreason = "Signal sent by Kernel";
 			break ;
 		case SI_USER: 
-			whywhywhy = "Signal sent by User";
+			faultreason = "Signal sent by User";
 			break ;
 		case SEGV_MAPERR: 
-			whywhywhy = "SIGSEV: address not mapped ";
+			faultreason = "SIGSEV: address not mapped ";
 			break ;
 		case SEGV_ACCERR:
-			whywhywhy = "SIGSEV: invalidpermission for the mapped object";
+			faultreason = "SIGSEV: invalidpermission for the mapped object";
 			break ;
 	}
+
+
+	void allocatepage(siginfo_t *siPtr,void *contextPtr) ;
+	allocatepage(si,pagefaultcontext) ;
+}
+
+
+
+void allocatepage(siginfo_t *si, void *pagefaultcontext) {
 
 	uint64_t faultingaddress = (uint64_t) si->si_addr ; 
 	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
@@ -475,6 +484,13 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 
 	// Check if the faulting address in the AS tables if so mmap it else exit gracefully 
 	//printf("Demand pager: fault address: %p, pagestart %lx, pageend %lx\n", (void *)faultingaddress, pagestart,pageend);
+
+	// 
+	// Input   global : addressspaces
+	//			
+	//			local : faultingaddress
+
+	// local variables:		
 	
 	ASEntry *asptr ;
 	int found = -1 ;
@@ -486,7 +502,7 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 		}
 	}
 
-	//printf("si->sicode: %d %s\n", si->si_code, whywhywhy);
+	//printf("si->sicode: %d %s\n", si->si_code, faultreason);
 	if( si->si_code != SEGV_MAPERR) {
 		printf("exit(1):Not capable of handling any thing other than page missing fault:%p\n", si->si_addr);
 		printf("   (found:%d)		pagestart = %lx, pageend = %lx\n", found,pagestart,pageend); 
@@ -534,12 +550,7 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 		exit(1);
 	}
 	//printf("map_pointer: %p\n",map_pointer);
-
 	//printf("\n-------\n");
-
-	//TODo
-	//exit(1);
-
 }
 
 
