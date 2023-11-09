@@ -1,4 +1,4 @@
-all: apager  apager.ammi dpager
+all: apager  apager.ammi dpager hpager
 	@echo "apager Built"
 	cd testsuit ; make
 
@@ -28,8 +28,16 @@ dpager: dpager.o stackutils.o pager.h
 	@#gcc -static -Wl,--verbose -o apager apager.o
 	gcc -static -Wl,--script=buntzlinkerfile -o dpager dpager.o stackutils.o
 
-dpager.o:	apager.c
+hpager: hpager.o stackutils.o pager.h
+	@#gcc -static -Wl,-Ttext=0x8090000,--verbose -o apager apager.o
+	@#gcc -static -Wl,--verbose -o apager apager.o
+	gcc -static -Wl,--script=buntzlinkerfile -o hpager hpager.o stackutils.o
+
+dpager.o:	apager.c pager.h
 	gcc -DDEMANDPAGING -g -c -o dpager.o apager.c
+
+hpager.o:	apager.c pager.h
+	gcc -DDEMANDPAGING -DHYBRIDPAGING -g -c -o hpager.o apager.c
 
 .PHONY: all clean runstatic codestyle
 
@@ -42,6 +50,7 @@ clean:
 	rm -f *.orig
 	rm -f apager.ammi
 	rm -f dpager
+	rm -f hpager
 	cd testsuit ; make clean
 
 codestyle:

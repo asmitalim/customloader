@@ -418,11 +418,17 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 	allocatepage(faultingaddress,si,pagefaultcontext) ;
 
 
+#ifdef  HYBRIDPAGING 
+	uint64_t additionaladdress = faultingaddress + PAGE_SIZE ; 
+	allocatepage(additionaladdress,si,pagefaultcontext) ;
+#endif
+
+
 }
 
 
 
-void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext) {
+void  allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext) {
 
 	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
 	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
@@ -507,14 +513,14 @@ void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontex
 
 	//printf("si->sicode: %d %s\n", si->si_code, faultreason);
 	if( si->si_code != SEGV_MAPERR) {
-		printf("exit(1):Not capable of handling any thing other than page missing fault:%p\n", si->si_addr);
+		printf("exit(1):Not capable of handling any thing other than page missing fault:%p\n", (void *)faultingaddress);
 		printf("   (found:%d)		pagestart = %lx, pageend = %lx\n", found,pagestart,pageend); 
 		exit(1);
 	}
 
 
 	if( found == -1) {
-		printf("exit(1):error: unhandled sigsegv fault any addresspace outside fault:%p\n, exiting...",si->si_addr);
+		fprintf(stderr,"addresspace outside  fault:%p\n, exiting...",(void *)faultingaddress);
 		exit(1);
 	}
 
