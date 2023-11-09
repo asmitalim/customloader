@@ -14,6 +14,10 @@
 
 
 #include "pager.h"
+int getASEntryIndex(uint64_t addr) ;
+void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext,int pagehint) ;
+#define PAGEHINT_ALLOCATE  1
+#define PAGEHINT_TRYNEXT   2
 
 
 void displayaddressspace() {
@@ -395,7 +399,17 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 
 
 	char *faultreason = "undefined" ; 
-	//printf("signal number: %d signo:%d\n",sig,si->si_signo);
+
+	uint64_t faultingaddress = (uint64_t) si->si_addr ; 
+	uint64_t  regip     = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_RIP] ;
+	uint64_t  accesserror = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_ERR] ;
+
+	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
+	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
+
+
+	//printf("\n\n____________________________________\n");
+	//printf("demandpager():signal number: %d signo:%d\n",sig,si->si_signo);
 	switch(si->si_code) {
 		case SI_KERNEL: 
 			faultreason = "Signal sent by Kernel";
@@ -411,48 +425,32 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 			break ;
 	}
 
-	uint64_t faultingaddress = (uint64_t) si->si_addr ; 
-
-	void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext) ;
-
-	allocatepage(faultingaddress,si,pagefaultcontext) ;
-
-
-#ifdef  HYBRIDPAGING 
-	uint64_t additionaladdress = faultingaddress + PAGE_SIZE ; 
-	allocatepage(additionaladdress,si,pagefaultcontext) ;
-#endif
-
-
-}
+	if (faultingaddress == (uint64_t)NULL ) {
+		// handle null pointer
+		if( regip == 0 ) {
+			printf("demandpager():executing instructions at null pointer\n");
+			exit(1);
+		} else {
+			printf("demandpager():abort() code dump --- with fault address: %lx\n", faultingaddress);
+			abort();
+		}
+	}
+	int foundx =  getASEntryIndex(faultingaddress) ;
 
 
-
-void  allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext) {
-
-	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
-	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
-	uint64_t  regip     = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_RIP] ;
-	uint64_t  accesserror = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_ERR] ;
-
-	/*
-
-	Linux arch/x86/include/asm/traf_pf.h
-	
-	enum x86_pf_error_code {
-		X86_PF_PROT	=		1 << 0,
-		X86_PF_WRITE	=		1 << 1,
-		X86_PF_USER	=		1 << 2,
-		X86_PF_RSVD	=		1 << 3,
-		X86_PF_INSTR	=		1 << 4,
-		X86_PF_PK	=		1 << 5,
-		X86_PF_SHSTK	=		1 << 6,
-		X86_PF_SGX	=		1 << 15,
-	};
-	*/
+	//printf("si->sicode: %d %s\n", si->si_code, faultreason);
+	if( si->si_code != SEGV_MAPERR) {
+		printf("demandpager():exit(1):Not capable of handling any thing other than page missing fault:%p\n", (void *)faultingaddress);
+		printf("   		(found:%d)		pagestart = %lx, pageend = %lx\n", foundx,pagestart,pageend); 
+		close(fd);
+		free(programs);
+		exit(1);
+	}
 
 
-	/*
+
+
+#ifdef DEBUG
 	printf("\n");
 	printf("rip = %lx, faultcode %lx \n",regip, accesserror);
 	if( accesserror & 0x01) 
@@ -474,54 +472,85 @@ void  allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultconte
 	if( accesserror & 0x040) printf("shadowstack ");
 	if( accesserror & 0x8000) printf("SGXMMUfault ");
 	printf("\n");
+#endif
+
+
+
+
+
+
+
+	/*
+	Linux arch/x86/include/asm/traf_pf.h
+	
+	enum x86_pf_error_code {
+		X86_PF_PROT	=		1 << 0,
+		X86_PF_WRITE	=		1 << 1,
+		X86_PF_USER	=		1 << 2,
+		X86_PF_RSVD	=		1 << 3,
+		X86_PF_INSTR	=		1 << 4,
+		X86_PF_PK	=		1 << 5,
+		X86_PF_SHSTK	=		1 << 6,
+		X86_PF_SGX	=		1 << 15,
+	};
 	*/
 
 
 
-	if (faultingaddress == (uint64_t)NULL ) {
-		// handle null pointer
-		if( regip == 0 ) {
-			printf("executing instructions at null pointer\n");
-			exit(1);
-		} else {
-			printf("abort() code dump --- with fault address: %lx\n", faultingaddress);
-			abort();
-		}
+	allocatepage(faultingaddress,si,pagefaultcontext,PAGEHINT_ALLOCATE) ;
+
+
+#ifdef  HYBRIDPAGING 
+	int entryid = getASEntryIndex(faultingaddress);
+
+	uint64_t additionaladdress = faultingaddress + PAGE_SIZE ; 
+	int entryidnext = getASEntryIndex(additionaladdress);
+
+	if( entryidnext == entryid) {
+		allocatepage(additionaladdress,si,pagefaultcontext,PAGEHINT_TRYNEXT) ;
 	}
+#endif
 
 
+}
 
-	// Check if the faulting address in the AS tables if so mmap it else exit gracefully 
-	//printf("Demand pager: fault address: %p, pagestart %lx, pageend %lx\n", (void *)faultingaddress, pagestart,pageend);
-
-	// 
-	// Input   global : addressspaces
-	//			
-	//			local : faultingaddress
-
-	// local variables:		
-	
+int getASEntryIndex(uint64_t addr) {
 	ASEntry *asptr ;
 	int found = -1 ;
 	for ( int i = 0 ; i < addressspaces.count ; i ++) {
 		asptr =  &addressspaces.entries[i] ;
-		if( (faultingaddress >= (asptr -> pagestart)) && ( faultingaddress < (asptr->pagestart + asptr->size))) {
+		if( (addr >= (asptr -> pagestart)) && ( addr < (asptr->pagestart + asptr->size))) {
 			found = i ; 
 			break ;
 		}
 	}
+	return found ; 
+}
 
-	//printf("si->sicode: %d %s\n", si->si_code, faultreason);
-	if( si->si_code != SEGV_MAPERR) {
-		printf("exit(1):Not capable of handling any thing other than page missing fault:%p\n", (void *)faultingaddress);
-		printf("   (found:%d)		pagestart = %lx, pageend = %lx\n", found,pagestart,pageend); 
-		exit(1);
-	}
 
+
+void  allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext, int allocatehint) {
+	// allocate hint PAGEHINT_ALLOCATE, PAGEHINT_TRYNEXT
+
+	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
+	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
+
+	ASEntry *asptr ;
+
+
+
+	int found = getASEntryIndex(faultingaddress) ;
 
 	if( found == -1) {
-		fprintf(stderr,"addresspace outside  fault:%p\n, exiting...",(void *)faultingaddress);
-		exit(1);
+		if( allocatehint == PAGEHINT_ALLOCATE) {
+			fprintf(stderr,"pager::allocate::(not in ASentries) addresspace outside  fault:%p\n, exiting...",(void *)faultingaddress);
+			close(fd);
+			free(programs);
+			exit(1);
+		} else if (  allocatehint == PAGEHINT_TRYNEXT) {
+			fprintf(stderr,"pager::allocate::(not in ASentries) addresspace outside  fault:%p\n, exiting...",(void *)faultingaddress);
+			return ;
+		}
 	}
 
 	asptr =  &addressspaces.entries[found] ;
@@ -546,17 +575,25 @@ void  allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultconte
    	printf("demandpaging:[%d] entrypage mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
 					found,
                    	pageentrystart, pageentrystart+PAGE_SIZE, PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
-
 	*/
+
 	map_pointer = mmap((void *)pageentrystart, (uint64_t)PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
 	if (map_pointer == MAP_FAILED) {
-		perror("mmap()");
-		fprintf(stderr,"program can not be loaded as there is a clash of address[%p:%p] program %d\n",
-			(void *)pageentrystart, (void *)pageentrystart+PAGE_SIZE, found);
-		close(fd);
-		free(programs);
+		if( allocatehint == PAGEHINT_ALLOCATE ) {
+			perror("mmap()");
+			fprintf(stderr,"program can not be loaded as there is a clash of address[%p:%p] program %d\n",
+				(void *)pageentrystart, (void *)pageentrystart+PAGE_SIZE, found);
+			close(fd);
+			free(programs);
 	
-		exit(1);
+			exit(1);
+		} else if( allocatehint == PAGEHINT_TRYNEXT ) {
+			//perror("mmap():Lookahead");
+			//fprintf(stderr, "trying to map extra failed --- due to mmap failed\n");
+		} else {
+			//perror("mmap():Lookahead");
+			//fprintf(stderr, "trying to map without any hint --- due to mmap failed\n");
+		}
 	}
 	//printf("map_pointer: %p\n",map_pointer);
 	//printf("\n-------\n");

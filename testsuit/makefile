@@ -49,16 +49,24 @@ instruments.o:	instruments.c instruments.h
 runapager:
 	@../apager ./hello.static hello
 	@../apager ./toload.static hello static
-	@../apager ./sigsegv.static hello static
-	@../apager ./bigarrays.static hello static
+	@../apager ./bigarrays.static 5000
+	@../apager ./bigarrays.static 500
+	@../apager ./bigarrays.static 5
 
 
 rundpager:
 	@../dpager ./hello.static hello
 	@../dpager ./toload.static hello static
-	@../dpager ./sigsegv.static hello static
-	@../dpager ./bigarrays.static hello static
+	@../dpager ./bigarrays.static 5000
+	@../dpager ./bigarrays.static 500
+	@../dpager ./bigarrays.static 5
 
+runhpager:
+	@../hpager ./hello.static hello
+	@../hpager ./toload.static hello static
+	@../hpager ./bigarrays.static 5000
+	@../hpager ./bigarrays.static 500
+	@../hpager ./bigarrays.static 5
 
 
 clean:
@@ -71,3 +79,4 @@ clean:
 run:
 	make rundpager
 	make runapager
+	make runhpager
