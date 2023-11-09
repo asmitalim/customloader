@@ -4,22 +4,22 @@ testsuit:	staticsuits
 
 
 
-staticsuits:	hello.static  toload.static sigsegv.static bigarrays.static
+staticsuits:	hello.static  toload.static sigsegv.static bigarrays.static instruments.o
 	echo "staticsuits is built"
 
 
 
-hello.static:	hello.static.o
-	gcc -static -Wl,-z,norelro -o hello.static hello.static.o
+hello.static:	hello.static.o instruments.o
+	gcc -static -Wl,-z,norelro -o hello.static hello.static.o instruments.o
 
-toload.static:	toload.static.o
-	gcc -static -Wl,-z,norelro -o toload.static toload.static.o
+toload.static:	toload.static.o instruments.o
+	gcc -static -Wl,-z,norelro -o toload.static toload.static.o instruments.o
 
-sigsegv.static:	sigsegv.static.o
-	gcc -static -Wl,-z,norelro -o sigsegv.static sigsegv.static.o
+sigsegv.static:	sigsegv.static.o instruments.o
+	gcc -static -Wl,-z,norelro -o sigsegv.static sigsegv.static.o instruments.o
 
-bigarrays.static:	bigarrays.static.o
-	gcc -static -Wl,-z,norelro -o bigarrays.static bigarrays.static.o
+bigarrays.static:	bigarrays.static.o instruments.o
+	gcc -static -Wl,-z,norelro -o bigarrays.static bigarrays.static.o instruments.o
 
 
 
@@ -37,6 +37,8 @@ sigsegv.static.o:	sigsegv.c
 bigarrays.static.o:	bigarrays.c
 	gcc -g -c -o bigarrays.static.o bigarrays.c
 
+instruments.o:	instruments.c instruments.h
+	gcc -c -o instruments.o instruments.c
 
 
 .PHONY:	all clean runapager rundpager run
