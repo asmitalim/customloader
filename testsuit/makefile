@@ -4,7 +4,7 @@ testsuit:	staticsuits  instruments xpager
 
 
 
-staticsuits:	hello.static  toload.static sigsegv.static bigarrays.static instruments.o
+staticsuits:	hello.static  toload.static sigsegv.static bigarrays.static instruments.o seqarray.static
 	echo "staticsuits is built"
 
 
@@ -20,6 +20,12 @@ sigsegv.static:	sigsegv.static.o instruments.o
 
 bigarrays.static:	bigarrays.static.o instruments.o
 	gcc -static -Wl,-z,norelro -o bigarrays.static bigarrays.static.o instruments.o
+
+
+seqarray.static:	seqarray.static.o instruments.o
+	gcc -static -Wl,-z,norelro -o seqarray.static seqarray.static.o instruments.o
+
+
 
 instruments:	instruments_main.o
 	gcc -Wl,-z,norelro  -o instruments instruments_main.o
@@ -40,6 +46,12 @@ sigsegv.static.o:	sigsegv.c
 
 bigarrays.static.o:	bigarrays.c
 	gcc -g -c -o bigarrays.static.o bigarrays.c
+
+seqarray.static.o:	seqarray.c
+	gcc -g -c -o seqarray.static.o seqarray.c
+
+
+
 
 instruments.o:	instruments.c instruments.h
 	gcc -g -c -o instruments.o instruments.c
@@ -65,6 +77,17 @@ runapager:
 	@../apager ./bigarrays.static 500
 	@../apager ./bigarrays.static 50
 	@../apager ./bigarrays.static 5
+	@../apager ./bigarrays.static 5
+	@../apager ./bigarrays.static 5
+	@../apager ./bigarrays.static 5
+	@../apager ./bigarrays.static 5
+	@../apager ./bigarrays.static 5
+	@../apager ./seqarray.static 5 -h
+	@../apager ./seqarray.static 5 
+	@../apager ./seqarray.static 5 
+	@../apager ./seqarray.static 5 
+	@../apager ./seqarray.static 5 
+	@../apager ./seqarray.static 5 
 
 
 rundpager:
@@ -74,6 +97,17 @@ rundpager:
 	@../dpager ./bigarrays.static 500
 	@../dpager ./bigarrays.static 50
 	@../dpager ./bigarrays.static 5
+	@../dpager ./bigarrays.static 5
+	@../dpager ./bigarrays.static 5
+	@../dpager ./bigarrays.static 5
+	@../dpager ./bigarrays.static 5
+	@../dpager ./bigarrays.static 5
+	@../dpager ./seqarray.static 5 -h
+	@../dpager ./seqarray.static 5 
+	@../dpager ./seqarray.static 5 
+	@../dpager ./seqarray.static 5 
+	@../dpager ./seqarray.static 5 
+	@../dpager ./seqarray.static 5 
 
 runhpager:
 	@../hpager ./hello.static hello
@@ -82,6 +116,17 @@ runhpager:
 	@../hpager ./bigarrays.static 500 
 	@../hpager ./bigarrays.static 50
 	@../hpager ./bigarrays.static 5
+	@../hpager ./bigarrays.static 5
+	@../hpager ./bigarrays.static 5
+	@../hpager ./bigarrays.static 5
+	@../hpager ./bigarrays.static 5
+	@../hpager ./bigarrays.static 5
+	@../hpager ./seqarray.static 5 -h
+	@../hpager ./seqarray.static 5 
+	@../hpager ./seqarray.static 5 
+	@../hpager ./seqarray.static 5 
+	@../hpager ./seqarray.static 5 
+	@../hpager ./seqarray.static 5 
 
 runxpager:
 	@./xpager ./hello.static hello
@@ -90,6 +135,17 @@ runxpager:
 	@./xpager ./bigarrays.static 500
 	@./xpager ./bigarrays.static 50
 	@./xpager ./bigarrays.static 5
+	@./xpager ./bigarrays.static 5
+	@./xpager ./bigarrays.static 5
+	@./xpager ./bigarrays.static 5
+	@./xpager ./bigarrays.static 5
+	@./xpager ./bigarrays.static 5
+	@./xpager ./seqarray.static 5 -h
+	@./xpager ./seqarray.static 5 
+	@./xpager ./seqarray.static 5 
+	@./xpager ./seqarray.static 5 
+	@./xpager ./seqarray.static 5 
+	@./xpager ./seqarray.static 5 
 
 
 clean:

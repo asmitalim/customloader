@@ -1,6 +1,7 @@
 all: apager  apager.ammi dpager hpager
 	@echo "apager Built"
 	cd testsuit ; make
+	cd mallocfilter/src ; make
 
 toload: toload.o
 	gcc -static -Wl,-z,norelro -o toload toload.o
@@ -52,6 +53,7 @@ clean:
 	rm -f dpager
 	rm -f hpager
 	cd testsuit ; make clean
+	cd mallocfilter/src ; make clean
 
 codestyle:
 	@astyle --style=google apager.c
