@@ -24,9 +24,9 @@ int main(int argc, char **argv, char **envp)
     p[psize-1] = '\0' ;
     q[qsize-1] = '\0' ;
     r[rsize-1] = '\0' ;
-    p[3] = 'A' ;
-    q[3] = 'B' ;
-    r[3] = 'C' ;
+    p[3] = 'P' ;
+    q[3] = 'Q' ;
+    r[3] = 'R' ;
 
 
     printf("pee = %s\n",p);
