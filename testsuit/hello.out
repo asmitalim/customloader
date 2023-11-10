@@ -1,6 +1,0 @@
-hello!! UT Austin
-argc 1
-argv[0] =  ./hello
-
-title,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
-Hello,2496,2496,576,176,132,4,1652,0, 0.005, 0.002, 0.002
