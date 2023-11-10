@@ -1,11 +1,11 @@
 testsuit:	staticsuits  instruments xpager
-	echo "all Test suit is built"
-	echo "make runapager or make rundpager" to run the tests 
+	@echo "all Test suit is built"
+	@echo "'make run' to run the doe"
 
 
 
 staticsuits:	hello.static  toload.static sigsegv.static bigarrays.static instruments.o seqarray.static
-	echo "staticsuits is built"
+	@echo "staticsuits is built"
 
 
 
@@ -149,26 +149,27 @@ runxpager:
 
 
 clean:
-	rm -f *.o
-	rm -f *.static
-	rm -f instruments
-	rm -f xpager
+	echo "Cleaning testsuit directory"
+	@rm -f *.o
+	@rm -f *.static
+	@rm -f instruments
+	@rm -f xpager
 
 
 
 
 run:
-	echo "" > results.log
-	echo "DPAGER" >> results.log
-	make rundpager
-	echo "" >> results.log
-	echo "APAGER" >> results.log
-	make runapager
-	echo "" >> results.log
-	echo "HPAGER" >> results.log
-	make runhpager
-	echo "" >> results.log
-	echo "XPAGER" >> results.log
-	make runxpager
-	echo "" >> results.log
-	cp results.log results`date +"-%Y%m%d-%H%M"`.log
+	@echo "" > results.log
+	@echo "DPAGER" >> results.log
+	@make rundpager
+	@echo "" >> results.log
+	@echo "APAGER" >> results.log
+	@make runapager
+	@echo "" >> results.log
+	@echo "HPAGER" >> results.log
+	@make runhpager
+	@echo "" >> results.log
+	@echo "XPAGER" >> results.log
+	@make runxpager
+	@echo "" >> results.log
+	@cp results.log results`date +"-%Y%m%d-%H%M"`.log

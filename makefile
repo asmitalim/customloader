@@ -8,7 +8,7 @@ toload: toload.o
 
 hello.static:	hello.o
 	gcc -static -Wl,-z,norelro  -o hello.static hello.o
-	nm hello.static | sort > hellosymbols.txt
+	@nm hello.static | sort > hellosymbols.txt
 
 hello.dyn:	hello.o
 	gcc -o hello.dyn hello.o
@@ -46,12 +46,13 @@ hpager.o:	apager.c pager.h
 	gcc -g -c $<
 
 clean:
-	rm -f *.o
-	rm -f apager
-	rm -f *.orig
-	rm -f apager.ammi
-	rm -f dpager
-	rm -f hpager
+	@echo "Cleaning the executables and *.o files"
+	@rm -f *.o
+	@rm -f apager
+	@rm -f *.orig
+	@rm -f apager.ammi
+	@rm -f dpager
+	@rm -f hpager
 	cd testsuit ; make clean
 	cd mallocfilter/src ; make clean
 
@@ -64,6 +65,6 @@ codestyle:
 
 
 run:
-	cd testsuit ; make all 
+	@make all
 	cd testsuit ; make run
 	

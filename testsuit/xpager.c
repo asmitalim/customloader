@@ -14,7 +14,7 @@
 int main(int argc, char **argv, char *envp) {
 
 	char path[MAX_BUF] ;
-	char commandpath[MAX_BUF] ;
+	char commandpath[MAX_BUF+2] ;
 	printf("Built in loader\n");
 
 	if( argc < 2 ) {
@@ -29,6 +29,6 @@ int main(int argc, char **argv, char *envp) {
 	printf("command path is %s\n",commandpath);
 
 
-	if(execve(commandpath,&argv[1],envp) < 0) { perror("execve");exit(2); }
+	if(execve(commandpath,&argv[1],(char *const *)envp) < 0) { perror("execve");exit(2); }
 	printf("you will never reach here\n");
 }

@@ -1,14 +1,14 @@
 all:	mallocfreefilter.so mallocfreemain mallocfilter2.so malloctest 
-	echo "shared library mallocfreefilter.so and test executable mallocfreemain is built"
+	@echo "shared library mallocfreefilter.so and test executable mallocfreemain are built"
 
 
 .PHONY: all clean runmalloctest codingstandard
 
 codingstandard:
-	astyle --style=linux mallocfreemain.c
-	astyle --style=linux mallocfreefilter.c
-	astyle --style=linux malloctest.c
-	astyle --style=linux mallocfilter2.c
+	@astyle --style=linux mallocfreemain.c
+	@astyle --style=linux mallocfreefilter.c
+	@astyle --style=linux malloctest.c
+	@astyle --style=linux mallocfilter2.c
 
 
 mallocfreefilter.so:	mallocfreefilter.c
@@ -44,20 +44,21 @@ malloctest.o:	malloctest.c
 
 runmalloctest:
 	make malloctest
-	./malloctest
-	LD_PRELOAD=`pwd`/mallocfilter2.so ./malloctest
+	@./malloctest
+	@LD_PRELOAD=`pwd`/mallocfilter2.so ./malloctest
 
 runfilter:
 	make mallocfreemain
-	./mallocfreemain
-	LD_PRELOAD=`pwd`/mallocfreefilter.so ./mallocfreemain
+	@./mallocfreemain
+	@LD_PRELOAD=`pwd`/mallocfreefilter.so ./mallocfreemain
 
 
 
 clean:
-	rm -f *.o
-	rm -f *.so
-	rm -f mallocfreemain
-	rm -f malloctest
-	rm -f *.orig
+	@echo "Cleaning the mallocfreemain directory"
+	@rm -f *.o
+	@rm -f *.so
+	@rm -f mallocfreemain
+	@rm -f malloctest
+	@rm -f *.orig
 

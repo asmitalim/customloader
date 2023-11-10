@@ -101,7 +101,7 @@ void instrumentstats(char *prefixstring, int headerflag) {
 			vmpeak,vmsize,vmhwm,vmdata,vmstk,vmexe,vmlib,vmswap,
 			usec1+ssec1, usec1,ssec1);
 		fputs(resultbuffer,fpresult);
-		printf(resultbuffer);
+		printf("%s",resultbuffer);
 	}
 	else {
     	sprintf(buffer,"%s,%s",prefixstring,statusformat);
@@ -109,7 +109,7 @@ void instrumentstats(char *prefixstring, int headerflag) {
 			vmpeak,vmsize,vmhwm,vmdata,vmstk,vmexe,vmlib,vmswap,
 			 usec1+ssec1, usec1,ssec1);
 		fputs(resultbuffer,fpresult);
-		printf(resultbuffer);
+		printf("%s",resultbuffer);
 	}
 
 	fclose(fpresult);

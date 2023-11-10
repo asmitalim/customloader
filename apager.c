@@ -405,7 +405,7 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
 
 
-	//printf("\n\n____________________________________\n");
+	printf("\n\n____________________________________\n");
 	//printf("demandpager():signal number: %d signo:%d\n",sig,si->si_signo);
 	switch(si->si_code) {
 		case SI_KERNEL: 
@@ -568,11 +568,9 @@ void  allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultconte
    	void * map_pointer ;
 
 
-	/*
-   	printf("demandpaging:[%d] entrypage mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+   	printf("pagefault:[%d]  mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
 					found,
                    	pageentrystart, pageentrystart+PAGE_SIZE, PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
-	*/
 
 	map_pointer = mmap((void *)pageentrystart, (uint64_t)PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
 	if (map_pointer == MAP_FAILED) {
@@ -779,7 +777,6 @@ int main(int argc, char **argv, char** envp) {
 
 
 
-            // TODO: check if virtual address clashes before mmap
             int fileprot = PROT_NONE;
 
 
@@ -835,7 +832,7 @@ int main(int argc, char **argv, char** envp) {
 
 			// HYBRID Mapping
 			// preloaded map for hpager
-            printf("filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+            printf("hpager: filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
                    filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
 
             map_pointer = mmap((void *)filemapstart, filemapsize, fileprot, fileflags, fd, filemapoffset);
@@ -853,7 +850,7 @@ int main(int argc, char **argv, char** envp) {
 
 #else
 			// PRELOADED MAP for apager
-            printf("filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+            printf("apager:filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
                    filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
 
             map_pointer = mmap((void *)filemapstart, filemapsize, fileprot, fileflags, fd, filemapoffset);
@@ -908,9 +905,8 @@ int main(int argc, char **argv, char** envp) {
 #endif
 
 #ifdef DEMANDPAGING
-					// TODO how to handle this for demand paging 
 
-					printf("Demandpaging:Resetting memory for anon %p %08lx \n",
+					printf("Demandpaging:memsetting to zero  memory in vadd+filesz to anon-(va+file) addr:%p size:%08lx \n",
                          (void *) ( programs[i].p_vaddr + programs[i].p_filesz),
                                  (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
 
@@ -922,7 +918,7 @@ int main(int argc, char **argv, char** envp) {
 #else
 					// set the memory to zero for the all the bytes beyond filez and until memsz
 
-					printf("NonDemandpaging:Resetting memory for anon %p  %08lx \n",
+					printf("NonDemandpaging:memsetting memory to zero for nonanon areas addr:%p  size:%08lx \n",
                          (void *) ( programs[i].p_vaddr + programs[i].p_filesz),
                                  (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
 
@@ -956,8 +952,6 @@ int main(int argc, char **argv, char** envp) {
 
 
 
-	//TODO 
-	//exit(1);
 
     //  Set up the stack
 

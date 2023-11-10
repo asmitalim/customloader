@@ -9,6 +9,7 @@
 #include <sys/resource.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <string.h>
 
 
 void initheaders(char *prefixheader);
