@@ -695,6 +695,10 @@ int main(int argc, char **argv, char** envp) {
         NEW_AUX_ENTRY(&auxvector,AT_PHNUM, elfheader.e_phnum);
         entry = (void *)elfheader.e_entry ;
     }
+	else {
+		fprintf(stderr,"Can not load dynamic linked exectable and elf format other than ET_EXEC\n");
+		exit(1);
+	}
 
     programs = malloc(elfheader.e_phnum * elfheader.e_phentsize);
     if (programs == NULL) {

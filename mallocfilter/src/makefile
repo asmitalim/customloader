@@ -1,4 +1,4 @@
-all:	mallocfreefilter.so mallocfreemain mallocfilter2.so malloctest 
+all:	mallocfreefilter.so mallocfreemain mallocfilter2.so malloctest  malloctest.static mallocfreemain.static
 	@echo "shared library mallocfreefilter.so and test executable mallocfreemain are built"
 
 
@@ -17,6 +17,9 @@ mallocfreefilter.so:	mallocfreefilter.c
 
 mallocfreemain:	mallocfreemain.o mallocfreefilter.so
 	gcc -o mallocfreemain  mallocfreemain.o
+
+mallocfreemain.static :	mallocfreemain.o	
+	gcc -static -Wl,-z,norelro -o mallocfreemain.static mallocfreemain.o
 
 mallocfreemain.o:	mallocfreemain.c
 	gcc -c -g -o mallocfreemain.o mallocfreemain.c
@@ -39,6 +42,9 @@ mallocfilter2.so:	mallocfilter2.c
 malloctest:	malloctest.o
 	gcc -o malloctest malloctest.o
 
+malloctest.static:	malloctest.o
+	gcc -static -Wl,-z,norelro -o malloctest.static malloctest.o
+
 malloctest.o:	malloctest.c
 	gcc -c -o malloctest.o malloctest.c
 
@@ -59,6 +65,8 @@ clean:
 	@rm -f *.o
 	@rm -f *.so
 	@rm -f mallocfreemain
+	@rm -f mallocfreemain.static
 	@rm -f malloctest
 	@rm -f *.orig
+	@rm -f malloctest.static
 

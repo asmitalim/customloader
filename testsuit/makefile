@@ -4,7 +4,7 @@ testsuit:	staticsuits  instruments xpager
 
 
 
-staticsuits:	hello.static  toload.static sigsegv.static bigarrays.static instruments.o seqarray.static
+staticsuits:	hello.static  toload.static sigsegv.static bigarrays.static instruments.o seqarray.static malloctest.static
 	@echo "staticsuits is built"
 
 
@@ -25,6 +25,8 @@ bigarrays.static:	bigarrays.static.o instruments.o
 seqarray.static:	seqarray.static.o instruments.o
 	gcc -static -Wl,-z,norelro -o seqarray.static seqarray.static.o instruments.o
 
+malloctest.static:	malloctest.static.o instruments.o
+	gcc -static -Wl,-z,norelro -o malloctest.static malloctest.static.o instruments.o
 
 
 instruments:	instruments_main.o
@@ -50,6 +52,8 @@ bigarrays.static.o:	bigarrays.c
 seqarray.static.o:	seqarray.c
 	gcc -g -c -o seqarray.static.o seqarray.c
 
+malloctest.static.o:	malloctest.c
+	gcc -g -c -o malloctest.static.o malloctest.c
 
 
 
