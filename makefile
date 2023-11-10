@@ -1,13 +1,14 @@
-all: apager  apager.ammi dpager
+all: apager  apager.ammi dpager hpager h3pager
 	@echo "apager Built"
 	cd testsuit ; make
+	cd mallocfilter/src ; make
 
 toload: toload.o
 	gcc -static -Wl,-z,norelro -o toload toload.o
 
 hello.static:	hello.o
 	gcc -static -Wl,-z,norelro  -o hello.static hello.o
-	nm hello.static | sort > hellosymbols.txt
+	@nm hello.static | sort > hellosymbols.txt
 
 hello.dyn:	hello.o
 	gcc -o hello.dyn hello.o
@@ -28,8 +29,24 @@ dpager: dpager.o stackutils.o pager.h
 	@#gcc -static -Wl,--verbose -o apager apager.o
 	gcc -static -Wl,--script=buntzlinkerfile -o dpager dpager.o stackutils.o
 
-dpager.o:	apager.c
+hpager: hpager.o stackutils.o pager.h
+	@#gcc -static -Wl,-Ttext=0x8090000,--verbose -o apager apager.o
+	@#gcc -static -Wl,--verbose -o apager apager.o
+	gcc -static -Wl,--script=buntzlinkerfile -o hpager hpager.o stackutils.o
+
+h3pager: h3pager.o stackutils.o pager.h
+	@#gcc -static -Wl,-Ttext=0x8090000,--verbose -o apager apager.o
+	@#gcc -static -Wl,--verbose -o apager apager.o
+	gcc -static -Wl,--script=buntzlinkerfile -o h3pager h3pager.o stackutils.o
+
+dpager.o:	apager.c pager.h
 	gcc -DDEMANDPAGING -g -c -o dpager.o apager.c
+
+hpager.o:	apager.c pager.h
+	gcc -DDEMANDPAGING -DHYBRIDPAGING -g -c -o hpager.o apager.c
+
+h3pager.o:	apager.c pager.h
+	gcc -DTHREEPAGER -DDEMANDPAGING -DHYBRIDPAGING -g -c -o h3pager.o apager.c
 
 .PHONY: all clean runstatic codestyle
 
@@ -37,12 +54,16 @@ dpager.o:	apager.c
 	gcc -g -c $<
 
 clean:
-	rm -f *.o
-	rm -f apager
-	rm -f *.orig
-	rm -f apager.ammi
-	rm -f dpager
+	@echo "Cleaning the executables and *.o files"
+	@rm -f *.o
+	@rm -f apager
+	@rm -f *.orig
+	@rm -f apager.ammi
+	@rm -f dpager
+	@rm -f hpager
+	@rm -f h3pager
 	cd testsuit ; make clean
+	cd mallocfilter/src ; make clean
 
 codestyle:
 	@astyle --style=google apager.c
@@ -53,6 +74,7 @@ codestyle:
 
 
 run:
-	cd testsuit ; make all 
-	cd testsuit ; make run
+	@make all
+	cd testsuit ; make run 
+	cd testsuit ; make runmore
 	

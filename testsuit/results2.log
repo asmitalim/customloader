@@ -1,0 +1,89 @@
+
+DPAGER
+title,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+Hello,2188,2188,4,332,164,608,724,0, 0.001, 0.001, 0.000
+Title,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+toload,2188,2188,4,332,164,608,724,0, 0.001, 0.001, 0.000
+ProgramName,Pages,N,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+BigArrays,2048,5000,2224,2224,1800,364,164,608,728,0, 0.001, 0.000, 0.001
+BigArrays,2048,500,2400,2400,1800,540,164,608,728,0, 0.002, 0.002, 0.000
+BigArrays,2048,50,4168,4168,3648,2308,164,608,728,0, 0.012, 0.008, 0.004
+BigArrays,2048,5,21864,21864,21336,20004,164,608,728,0, 0.079, 0.071, 0.008
+BigArrays,2048,5,21864,21864,21336,20004,164,608,728,0, 0.070, 0.046, 0.023
+BigArrays,2048,5,21864,21864,21336,20004,164,608,728,0, 0.070, 0.051, 0.019
+BigArrays,2048,5,21864,21864,21336,20004,164,608,728,0, 0.069, 0.065, 0.004
+BigArrays,2048,5,21864,21864,21336,20004,164,608,728,0, 0.069, 0.061, 0.008
+BigArrays,2048,5,21864,21864,21336,20004,164,608,728,0, 0.069, 0.053, 0.016
+ProgramName,Pages,N,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+Sequential Array,2048,5,67728,67728,67272,65868,164,608,728,0, 0.103, 0.047, 0.055
+Sequential Array,2048,5,67728,67728,67272,65868,164,608,728,0, 0.102, 0.055, 0.047
+Sequential Array,2048,5,67728,67728,67272,65868,164,608,728,0, 0.101, 0.057, 0.045
+Sequential Array,2048,5,67728,67728,67272,65868,164,608,728,0, 0.104, 0.060, 0.044
+Sequential Array,2048,5,67728,67728,67272,65868,164,608,728,0, 0.101, 0.047, 0.055
+Sequential Array,2048,5,67728,67728,67272,65868,164,608,728,0, 0.102, 0.065, 0.037
+APAGER
+title,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+Hello,2184,2184,4,328,164,608,724,0, 0.001, 0.001, 0.000
+Title,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+toload,2184,2184,4,328,164,608,724,0, 0.001, 0.001, 0.000
+ProgramName,Pages,N,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+BigArrays,2048,5000,67724,67724,67216,65864,164,608,728,0, 0.013, 0.000, 0.013
+BigArrays,2048,500,67724,67724,67216,65864,164,608,728,0, 0.016, 0.004, 0.012
+BigArrays,2048,50,67724,67724,67216,65864,164,608,728,0, 0.023, 0.008, 0.015
+BigArrays,2048,5,67724,67724,67216,65864,164,608,728,0, 0.071, 0.055, 0.016
+BigArrays,2048,5,67724,67724,67216,65864,164,608,728,0, 0.067, 0.051, 0.016
+BigArrays,2048,5,67724,67724,67216,65864,164,608,728,0, 0.066, 0.051, 0.016
+BigArrays,2048,5,67724,67724,67216,65864,164,608,728,0, 0.069, 0.053, 0.016
+BigArrays,2048,5,67724,67724,67216,65864,164,608,728,0, 0.068, 0.052, 0.016
+BigArrays,2048,5,67724,67724,67216,65864,164,608,728,0, 0.068, 0.052, 0.016
+ProgramName,Pages,N,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+Sequential Array,2048,5,67724,67724,67216,65864,164,608,728,0, 0.057, 0.045, 0.012
+Sequential Array,2048,5,67724,67724,67216,65864,164,608,728,0, 0.060, 0.044, 0.016
+Sequential Array,2048,5,67724,67724,67216,65864,164,608,728,0, 0.061, 0.046, 0.015
+Sequential Array,2048,5,67724,67724,67216,65864,164,608,728,0, 0.065, 0.048, 0.016
+Sequential Array,2048,5,67724,67724,67216,65864,164,608,728,0, 0.064, 0.048, 0.016
+Sequential Array,2048,5,67724,67724,67216,65864,164,608,728,0, 0.063, 0.047, 0.016
+HPAGER
+title,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+Hello,1616,1616,976,332,164,608,272,0, 0.001, 0.001, 0.000
+Title,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+toload,1624,1624,976,332,164,608,280,0, 0.001, 0.001, 0.000
+ProgramName,Pages,N,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+BigArrays,2048,5000,1704,1704,1240,372,164,608,316,0, 0.001, 0.001, 0.000
+BigArrays,2048,500,1872,1872,1240,540,164,608,316,0, 0.002, 0.000, 0.002
+BigArrays,2048,50,3648,3648,3088,2316,164,608,316,0, 0.008, 0.004, 0.004
+BigArrays,2048,5,21336,21336,20776,20004,164,608,316,0, 0.066, 0.053, 0.012
+BigArrays,2048,5,21336,21336,20776,20004,164,608,316,0, 0.065, 0.046, 0.019
+BigArrays,2048,5,21336,21336,20776,20004,164,608,316,0, 0.068, 0.060, 0.008
+BigArrays,2048,5,21336,21336,20776,20004,164,608,316,0, 0.064, 0.056, 0.008
+BigArrays,2048,5,21336,21336,20776,20004,164,608,316,0, 0.064, 0.052, 0.012
+BigArrays,2048,5,21336,21336,20776,20004,164,608,316,0, 0.064, 0.052, 0.012
+ProgramName,Pages,N,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+Sequential Array,2048,5,67188,67188,66712,65868,164,608,304,0, 0.087, 0.040, 0.047
+Sequential Array,2048,5,67188,67188,66712,65868,164,608,304,0, 0.085, 0.046, 0.039
+Sequential Array,2048,5,67188,67188,66712,65868,164,608,304,0, 0.084, 0.044, 0.040
+Sequential Array,2048,5,67188,67188,66712,65868,164,608,304,0, 0.085, 0.048, 0.036
+Sequential Array,2048,5,67188,67188,66712,65868,164,608,304,0, 0.085, 0.061, 0.024
+Sequential Array,2048,5,67188,67188,66712,65868,164,608,304,0, 0.084, 0.048, 0.036
+XPAGER
+title,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+Hello,1212,1212,4,172,132,716,8,0, 0.001, 0.001, 0.000
+Title,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+toload,1212,1212,4,172,132,716,8,0, 0.001, 0.001, 0.000
+ProgramName,Pages,N,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+BigArrays,2048,5000,66752,66752,4,65708,132,720,8,0, 0.001, 0.001, 0.000
+BigArrays,2048,500,66752,66752,1032,65708,132,720,8,0, 0.001, 0.000, 0.001
+BigArrays,2048,50,66752,66752,2616,65708,132,720,8,0, 0.006, 0.006, 0.000
+BigArrays,2048,5,66752,66752,20304,65708,132,720,8,0, 0.057, 0.057, 0.000
+BigArrays,2048,5,66752,66752,20304,65708,132,720,8,0, 0.057, 0.045, 0.012
+BigArrays,2048,5,66752,66752,20304,65708,132,720,8,0, 0.057, 0.049, 0.008
+BigArrays,2048,5,66752,66752,20304,65708,132,720,8,0, 0.056, 0.048, 0.008
+BigArrays,2048,5,66752,66752,20304,65708,132,720,8,0, 0.057, 0.057, 0.000
+BigArrays,2048,5,66752,66752,20304,65708,132,720,8,0, 0.059, 0.051, 0.008
+ProgramName,Pages,N,vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime
+Sequential Array,2048,5,66752,66752,66240,65708,132,720,8,0, 0.062, 0.047, 0.016
+Sequential Array,2048,5,66752,66752,66240,65708,132,720,8,0, 0.067, 0.039, 0.028
+Sequential Array,2048,5,66752,66752,66236,65708,132,720,8,0, 0.068, 0.056, 0.012
+Sequential Array,2048,5,66752,66752,66240,65708,132,720,8,0, 0.066, 0.042, 0.025
+Sequential Array,2048,5,66752,66752,66240,65708,132,720,8,0, 0.063, 0.048, 0.016
+Sequential Array,2048,5,66752,66752,66240,65708,132,720,8,0, 0.062, 0.043, 0.019

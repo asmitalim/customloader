@@ -14,6 +14,10 @@
 
 
 #include "pager.h"
+int getASEntryIndex(uint64_t addr) ;
+void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext,int pagehint) ;
+#define PAGEHINT_ALLOCATE  1
+#define PAGEHINT_TRYNEXT   2
 
 
 void displayaddressspace() {
@@ -314,9 +318,6 @@ void* populatestack(void* passedtopofthestack, int argc, char **argv, char **env
 
 
 
-    /*------------------- copy pasted
-    ----------------------------*/
-
 
 
     return topofthestack;
@@ -395,7 +396,17 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 
 
 	char *faultreason = "undefined" ; 
-	//printf("signal number: %d signo:%d\n",sig,si->si_signo);
+
+	uint64_t faultingaddress = (uint64_t) si->si_addr ; 
+	uint64_t  regip     = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_RIP] ;
+	uint64_t  accesserror = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_ERR] ;
+
+	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
+	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
+
+
+	printf("\n\n____________________________________\n");
+	//printf("demandpager():signal number: %d signo:%d\n",sig,si->si_signo);
 	switch(si->si_code) {
 		case SI_KERNEL: 
 			faultreason = "Signal sent by Kernel";
@@ -411,42 +422,32 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 			break ;
 	}
 
-	uint64_t faultingaddress = (uint64_t) si->si_addr ; 
-
-	void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext) ;
-
-	allocatepage(faultingaddress,si,pagefaultcontext) ;
-
-
-}
-
-
-
-void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext) {
-
-	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
-	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
-	uint64_t  regip     = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_RIP] ;
-	uint64_t  accesserror = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_ERR] ;
-
-	/*
-
-	Linux arch/x86/include/asm/traf_pf.h
-	
-	enum x86_pf_error_code {
-		X86_PF_PROT	=		1 << 0,
-		X86_PF_WRITE	=		1 << 1,
-		X86_PF_USER	=		1 << 2,
-		X86_PF_RSVD	=		1 << 3,
-		X86_PF_INSTR	=		1 << 4,
-		X86_PF_PK	=		1 << 5,
-		X86_PF_SHSTK	=		1 << 6,
-		X86_PF_SGX	=		1 << 15,
-	};
-	*/
+	if (faultingaddress == (uint64_t)NULL ) {
+		// handle null pointer
+		if( regip == 0 ) {
+			printf("demandpager():executing instructions at null pointer\n");
+			exit(1);
+		} else {
+			printf("demandpager():abort() code dump --- with fault address: %lx\n", faultingaddress);
+			abort();
+		}
+	}
+	int foundx =  getASEntryIndex(faultingaddress) ;
 
 
-	/*
+	//printf("si->sicode: %d %s\n", si->si_code, faultreason);
+	if( si->si_code != SEGV_MAPERR) {
+		printf("demandpager():exit(1):Not capable of handling any thing other than page missing fault:%p\n", (void *)faultingaddress);
+		printf("   		(found:%d)		pagestart = %lx, pageend = %lx\n", foundx,pagestart,pageend); 
+		close(fd);
+		free(programs);
+		exit(1);
+	}
+
+
+
+
+#ifdef DEBUG
 	printf("\n");
 	printf("rip = %lx, faultcode %lx \n",regip, accesserror);
 	if( accesserror & 0x01) 
@@ -468,54 +469,97 @@ void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontex
 	if( accesserror & 0x040) printf("shadowstack ");
 	if( accesserror & 0x8000) printf("SGXMMUfault ");
 	printf("\n");
+#endif
+
+
+
+
+
+
+
+	/*
+	Linux arch/x86/include/asm/traf_pf.h
+	
+	enum x86_pf_error_code {
+		X86_PF_PROT	=		1 << 0,
+		X86_PF_WRITE	=		1 << 1,
+		X86_PF_USER	=		1 << 2,
+		X86_PF_RSVD	=		1 << 3,
+		X86_PF_INSTR	=		1 << 4,
+		X86_PF_PK	=		1 << 5,
+		X86_PF_SHSTK	=		1 << 6,
+		X86_PF_SGX	=		1 << 15,
+	};
 	*/
 
 
 
-	if (faultingaddress == (uint64_t)NULL ) {
-		// handle null pointer
-		if( regip == 0 ) {
-			printf("executing instructions at null pointer\n");
-			exit(1);
-		} else {
-			printf("abort() code dump --- with fault address: %lx\n", faultingaddress);
-			abort();
-		}
+	allocatepage(faultingaddress,si,pagefaultcontext,PAGEHINT_ALLOCATE) ;
+
+
+#ifdef  HYBRIDPAGING 
+	int entryid = getASEntryIndex(faultingaddress);
+
+	uint64_t additionaladdress = faultingaddress + PAGE_SIZE ; 
+	int entryidnext = getASEntryIndex(additionaladdress);
+
+	if( entryidnext == entryid) {
+		allocatepage(additionaladdress,si,pagefaultcontext,PAGEHINT_TRYNEXT) ;
 	}
 
+#ifdef THREEPAGER
+	uint64_t thirdaddress = faultingaddress + 2*PAGE_SIZE ; 
+	entryidnext = getASEntryIndex(thirdaddress);
+
+	if( entryidnext == entryid) {
+		allocatepage(thirdaddress,si,pagefaultcontext,PAGEHINT_TRYNEXT) ;
+	}
+#endif
 
 
-	// Check if the faulting address in the AS tables if so mmap it else exit gracefully 
-	//printf("Demand pager: fault address: %p, pagestart %lx, pageend %lx\n", (void *)faultingaddress, pagestart,pageend);
 
-	// 
-	// Input   global : addressspaces
-	//			
-	//			local : faultingaddress
+#endif
 
-	// local variables:		
-	
+
+}
+
+int getASEntryIndex(uint64_t addr) {
 	ASEntry *asptr ;
 	int found = -1 ;
 	for ( int i = 0 ; i < addressspaces.count ; i ++) {
 		asptr =  &addressspaces.entries[i] ;
-		if( (faultingaddress >= (asptr -> pagestart)) && ( faultingaddress < (asptr->pagestart + asptr->size))) {
+		if( (addr >= (asptr -> pagestart)) && ( addr < (asptr->pagestart + asptr->size))) {
 			found = i ; 
 			break ;
 		}
 	}
+	return found ; 
+}
 
-	//printf("si->sicode: %d %s\n", si->si_code, faultreason);
-	if( si->si_code != SEGV_MAPERR) {
-		printf("exit(1):Not capable of handling any thing other than page missing fault:%p\n", si->si_addr);
-		printf("   (found:%d)		pagestart = %lx, pageend = %lx\n", found,pagestart,pageend); 
-		exit(1);
-	}
 
+
+void  allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext, int allocatehint) {
+	// allocate hint PAGEHINT_ALLOCATE, PAGEHINT_TRYNEXT
+
+	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
+	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
+
+	ASEntry *asptr ;
+
+
+
+	int found = getASEntryIndex(faultingaddress) ;
 
 	if( found == -1) {
-		printf("exit(1):error: unhandled sigsegv fault any addresspace outside fault:%p\n, exiting...",si->si_addr);
-		exit(1);
+		if( allocatehint == PAGEHINT_ALLOCATE) {
+			fprintf(stderr,"pager::allocate::(not in ASentries) addresspace outside  fault:%p\n, exiting...",(void *)faultingaddress);
+			close(fd);
+			free(programs);
+			exit(1);
+		} else if (  allocatehint == PAGEHINT_TRYNEXT) {
+			fprintf(stderr,"pager::allocate::(not in ASentries) addresspace outside  fault:%p\n, exiting...",(void *)faultingaddress);
+			return ;
+		}
 	}
 
 	asptr =  &addressspaces.entries[found] ;
@@ -536,21 +580,27 @@ void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontex
    	void * map_pointer ;
 
 
-	/*
-   	printf("demandpaging:[%d] entrypage mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+   	printf("pagefault:[%d]  mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
 					found,
                    	pageentrystart, pageentrystart+PAGE_SIZE, PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
 
-	*/
 	map_pointer = mmap((void *)pageentrystart, (uint64_t)PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
 	if (map_pointer == MAP_FAILED) {
-		perror("mmap()");
-		fprintf(stderr,"program can not be loaded as there is a clash of address[%p:%p] program %d\n",
-			(void *)pageentrystart, (void *)pageentrystart+PAGE_SIZE, found);
-		close(fd);
-		free(programs);
+		if( allocatehint == PAGEHINT_ALLOCATE ) {
+			perror("mmap()");
+			fprintf(stderr,"program can not be loaded as there is a clash of address[%p:%p] program %d\n",
+				(void *)pageentrystart, (void *)pageentrystart+PAGE_SIZE, found);
+			close(fd);
+			free(programs);
 	
-		exit(1);
+			exit(1);
+		} else if( allocatehint == PAGEHINT_TRYNEXT ) {
+			//perror("mmap():Lookahead");
+			//fprintf(stderr, "trying to map extra failed --- due to mmap failed\n");
+		} else {
+			//perror("mmap():Lookahead");
+			//fprintf(stderr, "trying to map without any hint --- due to mmap failed\n");
+		}
 	}
 	//printf("map_pointer: %p\n",map_pointer);
 	//printf("\n-------\n");
@@ -648,8 +698,8 @@ int main(int argc, char **argv, char** envp) {
     printf("Ephnum is %x \n", elfheader.e_phnum);
     printf("Eshentsize is %x \n", elfheader.e_shentsize);
     printf("Ephnum is %x \n", elfheader.e_shnum);
-    */
     printf("Eentry is %lx \n", elfheader.e_entry);
+    */
 
     if( elfheader.e_type == ET_EXEC ) {
         NEW_AUX_ENTRY(&auxvector,AT_ENTRY, elfheader.e_entry);
@@ -657,6 +707,10 @@ int main(int argc, char **argv, char** envp) {
         NEW_AUX_ENTRY(&auxvector,AT_PHNUM, elfheader.e_phnum);
         entry = (void *)elfheader.e_entry ;
     }
+	else {
+		fprintf(stderr,"Can not load dynamic linked exectable and elf format other than ET_EXEC\n");
+		exit(1);
+	}
 
     programs = malloc(elfheader.e_phnum * elfheader.e_phentsize);
     if (programs == NULL) {
@@ -706,15 +760,15 @@ int main(int argc, char **argv, char** envp) {
 
 				int programtoload ; 
 
-				printf("-->		Entry = %lx, start = %lx, end = %lx\n",entry,startoffset,endoffset);
+				//printf("-->		Entry = %lx, start = %lx, end = %lx\n",entry,startoffset,endoffset);
 				if( (entry >= startoffset ) && ( entry < endoffset )) rightprogram = 1 ; 
 				if( rightprogram) {
 					programtoload = i ; 
-					printf("			-> Correct Program[%d] is %d\n",programtoload,rightprogram);
+					//printf("			-> Correct Program[%d] is %d\n",programtoload,rightprogram);
 					pageentrystart = entry & ~PAGE_MASK ; 
 					pageentryend   = ( entry + PAGE_SIZE) & ~PAGE_MASK ; 
 
-					printf("-->		first page is ready for mmap ( address = %lx, size = %lx )\n", pageentrystart, pageentryend-pageentrystart );
+					//printf("-->		first page is ready for mmap ( address = %lx, size = %lx )\n", pageentrystart, pageentryend-pageentrystart );
 				}
 			}
 			while(0);
@@ -739,7 +793,6 @@ int main(int argc, char **argv, char** envp) {
 
 
 
-            // TODO: check if virtual address clashes before mmap
             int fileprot = PROT_NONE;
 
 
@@ -771,6 +824,8 @@ int main(int argc, char **argv, char** envp) {
 			uint64_t pageentryoffset ;
 			*/
 
+#ifndef HYBRIDPAGING
+			// only one page for dpager , do not do fullmmap
 			if(rightprogram) {
 				pageentryoffset = pageentrystart - filemapstart + filemapoffset ;
 
@@ -789,9 +844,11 @@ int main(int argc, char **argv, char** envp) {
 				}
 			}
 			NEW_AS_ENTRY(&addressspaces, filemapstart,filemapsize,fileprot,fileflags,fd,filemapoffset)	;	
-
 #else
-            printf("filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+
+			// HYBRID Mapping
+			// preloaded map for hpager
+            printf("hpager: filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
                    filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
 
             map_pointer = mmap((void *)filemapstart, filemapsize, fileprot, fileflags, fd, filemapoffset);
@@ -806,6 +863,27 @@ int main(int argc, char **argv, char** envp) {
                 exit(1);
             }
 #endif
+
+#else
+			// PRELOADED MAP for apager
+            printf("apager:filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+                   filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
+
+            map_pointer = mmap((void *)filemapstart, filemapsize, fileprot, fileflags, fd, filemapoffset);
+
+            if (map_pointer == MAP_FAILED) {
+                perror("mmap()");
+                fprintf(stderr,"program can not be loaded as there is a clash of address[%p:%p] program %d\n",
+                        (void *)filemapstart, (void *)filemapstart+filemapsize, i);
+                close(fd);
+                free(programs);
+
+                exit(1);
+            }
+#endif
+
+
+			// THIS FOR ALL 
 
 
             if (programs[i].p_memsz > programs[i].p_filesz) {
@@ -843,7 +921,11 @@ int main(int argc, char **argv, char** envp) {
 #endif
 
 #ifdef DEMANDPAGING
-					// TODO how to handle this for demand paging 
+
+					printf("Demandpaging:memsetting to zero  memory in vadd+filesz to anon-(va+file) addr:%p size:%08lx \n",
+                         (void *) ( programs[i].p_vaddr + programs[i].p_filesz),
+                                 (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
+
                     if( anonprot & PROT_WRITE ) {
                         memset ( (void *) ( programs[i].p_vaddr + programs[i].p_filesz),0UL,
                                  (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
@@ -851,6 +933,12 @@ int main(int argc, char **argv, char** envp) {
                     } //resetting to zero
 #else
 					// set the memory to zero for the all the bytes beyond filez and until memsz
+
+					printf("NonDemandpaging:memsetting memory to zero for nonanon areas addr:%p  size:%08lx \n",
+                         (void *) ( programs[i].p_vaddr + programs[i].p_filesz),
+                                 (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
+
+
                     if( anonprot & PROT_WRITE ) {
                         memset ( (void *) ( programs[i].p_vaddr + programs[i].p_filesz),0UL,
                                  (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
@@ -880,8 +968,6 @@ int main(int argc, char **argv, char** envp) {
 
 
 
-	//TODO 
-	//exit(1);
 
     //  Set up the stack
 
@@ -923,7 +1009,7 @@ int main(int argc, char **argv, char** envp) {
             printf("Stack not populated! \n");
             exit(1);
         } else {
-            printstack((char *) newsp);
+            //printstack((char *) newsp);
         }
     }
 
@@ -932,16 +1018,16 @@ int main(int argc, char **argv, char** envp) {
 
 
     //displayaddressspace();
-    stackcheck(newsp,argc-1,&argv[1]);
+    //stackcheck(newsp,argc-1,&argv[1]);
 
 #ifdef DEMANDPAGING
-	PRINT_ASTABLE(&addressspaces);
+	//PRINT_ASTABLE(&addressspaces);
 #endif
 
 
     //givecontrol(void *programentry, void *topofthestack) ;
-    printf("program entry is %p \n", entry);
-    printf("stackpointer  is %p \n",newsp);
+    //printf("program entry is %p \n", entry);
+    //printf("stackpointer  is %p \n",newsp);
 
     //givecontrol(entry, newsp) ;
     starttheprogram(entry, newsp) ;

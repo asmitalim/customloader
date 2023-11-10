@@ -10,6 +10,7 @@ int main(int argc, char **argv, char **envp) {
         printf("argv[%d] =  %s\n",i,argv[i]);
     }
 
-	instrumentstats("Hello program");
+	initheaders("title");
+	instrumentstats("Hello",1);
     return 0 ;
 }

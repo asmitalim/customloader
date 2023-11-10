@@ -9,8 +9,11 @@
 #include <sys/resource.h>
 #include <ctype.h>
 #include <stdint.h>
+#include <string.h>
 
 
-void instrumentstats(char *prefixstring) ;
+void initheaders(char *prefixheader);
+void instrumentstats(char *prefixstring, int headerflag) ;
+
 
 #endif
