@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "instruments.h"
 int main(int argc, char **argv, char **envp) {
 
     printf("hello!! UT Austin\n");
@@ -9,5 +10,6 @@ int main(int argc, char **argv, char **envp) {
         printf("argv[%d] =  %s\n",i,argv[i]);
     }
 
+	instrumentstats("Hello program");
     return 0 ;
 }

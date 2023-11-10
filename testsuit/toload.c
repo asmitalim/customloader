@@ -2,6 +2,8 @@
 #include<stdlib.h>
 #include<elf.h>
 
+#include "instruments.h"
+
 int main(int argc, char* argv[], char* envp[]) {
     FILE* fp;
     char buffer[5000];
@@ -25,6 +27,7 @@ int main(int argc, char* argv[], char* envp[]) {
     while(fgets(buffer,5000,fp)) {
         fputs(buffer,stdout);
     }
+	instrumentstats("Argc, Argv, envp and Auxv Display");
     return 0;
 
 }

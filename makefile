@@ -1,11 +1,17 @@
-all: toload apager hello apager.ammi 
+all: apager  apager.ammi dpager
 	@echo "apager Built"
+	cd testsuit ; make
 
 toload: toload.o
-	gcc -static -o toload toload.o
+	gcc -static -Wl,-z,norelro -o toload toload.o
 
-hello:	hello.o
-	gcc -static -o hello hello.o
+hello.static:	hello.o
+	gcc -static -Wl,-z,norelro  -o hello.static hello.o
+	nm hello.static | sort > hellosymbols.txt
+
+hello.dyn:	hello.o
+	gcc -o hello.dyn hello.o
+
 
 apager.ammi: apager.o stackutils.o pager.h
 	@#gcc -static -Wl,-Ttext=0x8090000,--verbose -o apager apager.o
@@ -17,6 +23,13 @@ apager: apager.o stackutils.o pager.h
 	@#gcc -static -Wl,--verbose -o apager apager.o
 	gcc -static -Wl,--script=buntzlinkerfile -o apager apager.o stackutils.o
 
+dpager: dpager.o stackutils.o pager.h
+	@#gcc -static -Wl,-Ttext=0x8090000,--verbose -o apager apager.o
+	@#gcc -static -Wl,--verbose -o apager apager.o
+	gcc -static -Wl,--script=buntzlinkerfile -o dpager dpager.o stackutils.o
+
+dpager.o:	apager.c
+	gcc -DDEMANDPAGING -g -c -o dpager.o apager.c
 
 .PHONY: all clean runstatic codestyle
 
@@ -24,15 +37,12 @@ apager: apager.o stackutils.o pager.h
 	gcc -g -c $<
 
 clean:
-	rm -f toload
 	rm -f *.o
 	rm -f apager
 	rm -f *.orig
-	rm -f hello
 	rm -f apager.ammi
-
-runstatic:
-	./apager hello
+	rm -f dpager
+	cd testsuit ; make clean
 
 codestyle:
 	@astyle --style=google apager.c
@@ -40,3 +50,9 @@ codestyle:
 	@astyle --style=google stackutils.c
 	@astyle --style=google hello.c
 	@astyle --style=google toload.c
+
+
+run:
+	cd testsuit ; make all 
+	cd testsuit ; make run
+	

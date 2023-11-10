@@ -6,7 +6,11 @@
 #include <elf.h>
 #include <assert.h>
 #include <stdlib.h>
+#define __USE_GNU 1  
 #include <string.h>
+// ucontext RIP 
+#include <signal.h>
+#include <sys/ucontext.h>
 
 
 #include "pager.h"
@@ -14,7 +18,7 @@
 
 void displayaddressspace() {
     FILE *fp;
-    char buffer[5000];
+    char buffer[5020];
     fp = fopen("/proc/self/maps", "r");
     while (fgets(buffer, 5000, fp)) {
         fputs(buffer, stdout);
@@ -25,11 +29,11 @@ void displayaddressspace() {
 }
 
 void *allocatestack(size_t size) {
-    unsigned long stackprots = PROT_NONE;
+    int stackprots = PROT_NONE;
     stackprots |= PROT_READ;
     stackprots |= PROT_WRITE;
 
-    unsigned long stackflags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK |
+    int stackflags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK |
                                MAP_GROWSDOWN | MAP_POPULATE;
     void *stackpointer = mmap(NULL, size, stackprots, stackflags, -1, 0L);
     if (stackpointer == MAP_FAILED) {
@@ -319,6 +323,242 @@ void* populatestack(void* passedtopofthestack, int argc, char **argv, char **env
 }
 
 
+#ifdef DEMANDPAGING
+int fd;
+Elf64_Ehdr elfheader;
+Elf64_Phdr *programs;
+Elf_Auxv auxvector ;
+
+#define MAX_AS_ENTRIES  10
+
+// space to keep valid address spaces of the loaded executable
+typedef struct {
+	uint64_t pagestart ;
+	uint64_t size ;
+	int prots ;
+	int flags ; 
+	int fd ;
+	uint64_t fileoffset ; 
+} ASEntry ; 
+
+typedef struct {
+	int count ; 
+	ASEntry entries[MAX_AS_ENTRIES] ;
+} ASTable ;
+
+ASTable  addressspaces ; 
+
+#define NEW_AS_ENTRY(masptr, mstart,msize,mprots,mflags,mfd,mfileoffset)		\
+	do	{\
+	(masptr)->entries[(masptr)->count].pagestart = (mstart)	;\
+	(masptr)->entries[(masptr)->count].size = (msize)	;\
+	(masptr)->entries[(masptr)->count].prots = (mprots)	;\
+	(masptr)->entries[(masptr)->count].flags = (mflags)	;\
+	(masptr)->entries[(masptr)->count].fd = (mfd)	;\
+	(masptr)->entries[(masptr)->count].fileoffset = (mfileoffset)	;\
+	(masptr)->count ++ ;\
+	} while(0);
+
+#define INIT_ASTABLE(masptr) 	\
+	do 	{\
+		for(int i = 0 ; i< MAX_AS_ENTRIES ; i++) { \
+			(masptr)->entries[i].pagestart = 0 ; \
+			(masptr)->entries[i].size = 0 ; \
+			(masptr)->entries[i].prots = 0 ; \
+			(masptr)->entries[i].flags = 0 ; \
+			(masptr)->entries[i].fd = 0 ; \
+			(masptr)->entries[i].fileoffset = 0 ; \
+		} \
+		(masptr)->count = 0 ;  \
+	} while(0);
+
+
+#define PRINT_ASTABLE(masptr) \
+	do 	{\
+		for(int i = 0 ; i< MAX_AS_ENTRIES ; i++) { \
+			printf("Astable[%d] start:%lx, size:%lx, end:%lx, prots:%x, flags=%x, fd=%d offset=%lx\n",\
+			i,\
+			(masptr)->entries[i].pagestart, \
+			(masptr)->entries[i].size, \
+			(masptr)->entries[i].pagestart + (masptr)->entries[i].size, \
+			(masptr)->entries[i].prots ,	\
+			(masptr)->entries[i].flags ,	\
+			(masptr)->entries[i].fd ,	\
+			(masptr)->entries[i].fileoffset );	\
+		} \
+		printf("Total N = %d\n", (masptr)->count );  \
+	} while(0);
+
+
+
+void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
+
+
+	char *faultreason = "undefined" ; 
+	//printf("signal number: %d signo:%d\n",sig,si->si_signo);
+	switch(si->si_code) {
+		case SI_KERNEL: 
+			faultreason = "Signal sent by Kernel";
+			break ;
+		case SI_USER: 
+			faultreason = "Signal sent by User";
+			break ;
+		case SEGV_MAPERR: 
+			faultreason = "SIGSEV: address not mapped ";
+			break ;
+		case SEGV_ACCERR:
+			faultreason = "SIGSEV: invalidpermission for the mapped object";
+			break ;
+	}
+
+	uint64_t faultingaddress = (uint64_t) si->si_addr ; 
+
+	void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext) ;
+
+	allocatepage(faultingaddress,si,pagefaultcontext) ;
+
+
+}
+
+
+
+void allocatepage(uint64_t faultingaddress, siginfo_t *si, void *pagefaultcontext) {
+
+	uint64_t  pagestart = (uint64_t)(faultingaddress) & ~PAGE_MASK ; 
+	uint64_t  pageend   = ((uint64_t)(faultingaddress) + PAGE_SIZE ) & ~PAGE_MASK ;
+	uint64_t  regip     = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_RIP] ;
+	uint64_t  accesserror = ((ucontext_t *)pagefaultcontext)->uc_mcontext.gregs[REG_ERR] ;
+
+	/*
+
+	Linux arch/x86/include/asm/traf_pf.h
+	
+	enum x86_pf_error_code {
+		X86_PF_PROT	=		1 << 0,
+		X86_PF_WRITE	=		1 << 1,
+		X86_PF_USER	=		1 << 2,
+		X86_PF_RSVD	=		1 << 3,
+		X86_PF_INSTR	=		1 << 4,
+		X86_PF_PK	=		1 << 5,
+		X86_PF_SHSTK	=		1 << 6,
+		X86_PF_SGX	=		1 << 15,
+	};
+	*/
+
+
+	/*
+	printf("\n");
+	printf("rip = %lx, faultcode %lx \n",regip, accesserror);
+	if( accesserror & 0x01) 
+		printf("protection ,");
+	else 	
+		printf("mmap ");
+
+	if( accesserror & 0x02) 
+		printf("writeaccess, "); 
+	else 
+		printf("readaccess, "); 
+
+	if( accesserror & 0x04) 
+		printf("usermode ");
+	else
+		printf("kernelaccess ");
+	if( accesserror & 0x010) printf("instruction ");
+	if( accesserror & 0x020) printf("protection-key ");
+	if( accesserror & 0x040) printf("shadowstack ");
+	if( accesserror & 0x8000) printf("SGXMMUfault ");
+	printf("\n");
+	*/
+
+
+
+	if (faultingaddress == (uint64_t)NULL ) {
+		// handle null pointer
+		if( regip == 0 ) {
+			printf("executing instructions at null pointer\n");
+			exit(1);
+		} else {
+			printf("abort() code dump --- with fault address: %lx\n", faultingaddress);
+			abort();
+		}
+	}
+
+
+
+	// Check if the faulting address in the AS tables if so mmap it else exit gracefully 
+	//printf("Demand pager: fault address: %p, pagestart %lx, pageend %lx\n", (void *)faultingaddress, pagestart,pageend);
+
+	// 
+	// Input   global : addressspaces
+	//			
+	//			local : faultingaddress
+
+	// local variables:		
+	
+	ASEntry *asptr ;
+	int found = -1 ;
+	for ( int i = 0 ; i < addressspaces.count ; i ++) {
+		asptr =  &addressspaces.entries[i] ;
+		if( (faultingaddress >= (asptr -> pagestart)) && ( faultingaddress < (asptr->pagestart + asptr->size))) {
+			found = i ; 
+			break ;
+		}
+	}
+
+	//printf("si->sicode: %d %s\n", si->si_code, faultreason);
+	if( si->si_code != SEGV_MAPERR) {
+		printf("exit(1):Not capable of handling any thing other than page missing fault:%p\n", si->si_addr);
+		printf("   (found:%d)		pagestart = %lx, pageend = %lx\n", found,pagestart,pageend); 
+		exit(1);
+	}
+
+
+	if( found == -1) {
+		printf("exit(1):error: unhandled sigsegv fault any addresspace outside fault:%p\n, exiting...",si->si_addr);
+		exit(1);
+	}
+
+	asptr =  &addressspaces.entries[found] ;
+
+
+	uint64_t pageentrystart ;
+	uint64_t pageentryoffset ;
+	int fileprot ;
+	int fileflags ;
+
+
+	pageentrystart = pagestart ; 
+	pageentryoffset = pagestart - asptr->pagestart + asptr->fileoffset ;
+	fileprot = asptr->prots ; 
+	fileflags = asptr->flags ; 
+
+
+   	void * map_pointer ;
+
+
+	/*
+   	printf("demandpaging:[%d] entrypage mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+					found,
+                   	pageentrystart, pageentrystart+PAGE_SIZE, PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
+
+	*/
+	map_pointer = mmap((void *)pageentrystart, (uint64_t)PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
+	if (map_pointer == MAP_FAILED) {
+		perror("mmap()");
+		fprintf(stderr,"program can not be loaded as there is a clash of address[%p:%p] program %d\n",
+			(void *)pageentrystart, (void *)pageentrystart+PAGE_SIZE, found);
+		close(fd);
+		free(programs);
+	
+		exit(1);
+	}
+	//printf("map_pointer: %p\n",map_pointer);
+	//printf("\n-------\n");
+}
+
+
+#endif
+
 
 
 
@@ -326,12 +566,43 @@ void* populatestack(void* passedtopofthestack, int argc, char **argv, char **env
 
 
 int main(int argc, char **argv, char** envp) {
-    int fd;
     int ret;
+#ifdef DEMANDPAGING
+#else
+    int fd;
     Elf64_Ehdr elfheader;
     Elf64_Phdr *programs;
-
     Elf_Auxv auxvector ;
+#endif
+
+
+#ifdef DEMANDPAGING
+// Define signal handler
+
+ struct sigaction saofdemandpager;
+ saofdemandpager.sa_flags = SA_SIGINFO|SA_ONSTACK ;
+ saofdemandpager.sa_sigaction = demandpager;
+ sigemptyset(&saofdemandpager.sa_mask);
+ if (sigaction(SIGSEGV, &saofdemandpager, NULL) == -1){
+ 	perror("sigaction()");	
+	fprintf(stderr,"Setting the callback function for demandpaging failed\n");
+ 	exit(1) ;
+ }
+ 
+	/* TEST For sigsegv ( it comes correctly ) 
+ 	char *invalidptr = 0x0000100 ; 
+ 	*invalidptr = 45 ; 
+	exit(1);
+	*/
+
+
+
+
+	INIT_ASTABLE(&addressspaces) ; 	
+
+#else
+#endif
+
 
     void *entry = NULL ;
     void *newsp = NULL  ;
@@ -368,8 +639,8 @@ int main(int argc, char **argv, char** envp) {
     }
     printf("\n");
     printf("Etype is %x \n", elfheader.e_type);
+    printf("Ephoff is %lx \n", elfheader.e_phoff);
     printf("Emachine is %x \n", elfheader.e_machine);
-    printf("Eentry is %lx \n", elfheader.e_entry);
     printf("Ephoff is %lx \n", elfheader.e_phoff);
     printf("Eshoff is %lx \n", elfheader.e_shoff);
     printf("Eflags is %x \n", elfheader.e_flags);
@@ -378,6 +649,7 @@ int main(int argc, char **argv, char** envp) {
     printf("Eshentsize is %x \n", elfheader.e_shentsize);
     printf("Ephnum is %x \n", elfheader.e_shnum);
     */
+    printf("Eentry is %lx \n", elfheader.e_entry);
 
     if( elfheader.e_type == ET_EXEC ) {
         NEW_AUX_ENTRY(&auxvector,AT_ENTRY, elfheader.e_entry);
@@ -409,13 +681,48 @@ int main(int argc, char **argv, char** envp) {
         //printf("Pflags %x,", programs[i].p_flags);
         //printf("Poffset %lx,", programs[i].p_offset);
         //printf("Pvaddr %lx,", programs[i].p_vaddr);
-        // printf("Ppaddr %lx \n", programs[i].p_paddr);
+        //printf("Ppaddr %lx \n", programs[i].p_paddr);
         //printf("Pfilesz %lx,", programs[i].p_filesz);
         //printf("Pmemsz %lx,", programs[i].p_memsz);
         //printf("Palign %lx \n", programs[i].p_align);
 
 
         if (programs[i].p_type == PT_LOAD) {
+
+#ifdef DEMANDPAGING
+			// Check the page which has executable's entry 
+
+			int rightprogram = 0; // if the current program is "interesting"
+			int programtoload = -1 ; // index of "interesting" program 
+			uint64_t pageentrystart ;
+			uint64_t pageentryend ;
+			uint64_t pageentryoffset ;
+
+			do {
+				uint64_t entry = elfheader.e_entry ; 
+				uint64_t startoffset = programs[i].p_vaddr ; 
+				uint64_t endoffset   = programs[i].p_vaddr + programs[i].p_filesz ; 
+
+
+				int programtoload ; 
+
+				printf("-->		Entry = %lx, start = %lx, end = %lx\n",entry,startoffset,endoffset);
+				if( (entry >= startoffset ) && ( entry < endoffset )) rightprogram = 1 ; 
+				if( rightprogram) {
+					programtoload = i ; 
+					printf("			-> Correct Program[%d] is %d\n",programtoload,rightprogram);
+					pageentrystart = entry & ~PAGE_MASK ; 
+					pageentryend   = ( entry + PAGE_SIZE) & ~PAGE_MASK ; 
+
+					printf("-->		first page is ready for mmap ( address = %lx, size = %lx )\n", pageentrystart, pageentryend-pageentrystart );
+				}
+			}
+			while(0);
+
+#else
+#endif
+
+
 
             uint64_t loadaddress = programs[i].p_vaddr;
             uint64_t filemapstart = loadaddress & ~PAGE_MASK;
@@ -433,7 +740,7 @@ int main(int argc, char **argv, char** envp) {
 
 
             // TODO: check if virtual address clashes before mmap
-            uint64_t fileprot = PROT_NONE;
+            int fileprot = PROT_NONE;
 
 
             if (programs[i].p_flags & PF_W) {
@@ -446,14 +753,46 @@ int main(int argc, char **argv, char** envp) {
                 fileprot |= PROT_EXEC;
             }
 
-            uint64_t fileflags = MAP_PRIVATE;
+            int fileflags = MAP_PRIVATE;
             fileflags |= MAP_POPULATE;
             fileflags |= MAP_FIXED_NOREPLACE;
 
-            printf("filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%lx flags=%lx fd=%d offset=%lx) \n",
-                   filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
 
-            void *map_pointer;
+            void *map_pointer = (void *)NULL;
+
+#ifdef DEMANDPAGING
+			/*
+			for reference
+
+			int rightprogram = 0; // if the current program is "interesting"
+			int programtoload = -1 ; // index of "interesting" program 
+			uint64_t pageentrystart ;
+			uint64_t pageentryend ;
+			uint64_t pageentryoffset ;
+			*/
+
+			if(rightprogram) {
+				pageentryoffset = pageentrystart - filemapstart + filemapoffset ;
+
+            	printf("demandpaging: entrypage mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+                   	pageentrystart, pageentrystart+PAGE_SIZE, PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
+
+            	map_pointer = mmap((void *)pageentrystart, (uint64_t)PAGE_SIZE, fileprot, fileflags, fd, pageentryoffset);
+            	if (map_pointer == MAP_FAILED) {
+                	perror("mmap()");
+                	fprintf(stderr,"program can not be loaded as there is a clash of address[%p:%p] program %d\n",
+                        (void *)pageentrystart, (void *)pageentrystart+PAGE_SIZE, i);
+                	close(fd);
+                	free(programs);
+
+                	exit(1);
+				}
+			}
+			NEW_AS_ENTRY(&addressspaces, filemapstart,filemapsize,fileprot,fileflags,fd,filemapoffset)	;	
+
+#else
+            printf("filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
+                   filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
 
             map_pointer = mmap((void *)filemapstart, filemapsize, fileprot, fileflags, fd, filemapoffset);
 
@@ -466,6 +805,8 @@ int main(int argc, char **argv, char** envp) {
 
                 exit(1);
             }
+#endif
+
 
             if (programs[i].p_memsz > programs[i].p_filesz) {
                 uint64_t anonmapstart = filemapend;
@@ -477,14 +818,17 @@ int main(int argc, char **argv, char** envp) {
 
                 if (anonmapsize > 0) {
 
-                    uint64_t anonprot = fileprot;
+                    int anonprot = fileprot;
 
-                    uint64_t anonflags = MAP_PRIVATE;
+                    int anonflags = MAP_PRIVATE;
                     anonflags |= MAP_ANONYMOUS;
                     anonflags |= MAP_FIXED_NOREPLACE;
                     anonflags |= MAP_POPULATE;
 
-                    printf("Anonymous  mmap( start address=%lx end address=%lx mapsize=%lx prot=%lx flags=%lx fd=%d offset=%lx) \n",
+#ifdef DEMANDPAGING
+					NEW_AS_ENTRY(&addressspaces, anonmapstart,anonmapsize,anonprot,anonflags,-1,0L)	;	
+#else
+                    printf("Anonymous  mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
                            anonmapstart, anonmapend, anonmapsize, anonprot, anonflags, -1, 0L);
 
                     map_pointer = mmap((void *)anonmapstart, anonmapsize, anonprot, anonflags, -1, 0L);
@@ -496,11 +840,23 @@ int main(int argc, char **argv, char** envp) {
                         free(programs);
                         exit(1);
                     }
+#endif
 
+#ifdef DEMANDPAGING
+					// TODO how to handle this for demand paging 
                     if( anonprot & PROT_WRITE ) {
                         memset ( (void *) ( programs[i].p_vaddr + programs[i].p_filesz),0UL,
                                  (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
+
                     } //resetting to zero
+#else
+					// set the memory to zero for the all the bytes beyond filez and until memsz
+                    if( anonprot & PROT_WRITE ) {
+                        memset ( (void *) ( programs[i].p_vaddr + programs[i].p_filesz),0UL,
+                                 (uint64_t) (anonmapstart - (programs[i].p_vaddr + programs[i].p_filesz)));
+
+                    } //resetting to zero
+#endif
                 }// for anon
             }
 
@@ -511,13 +867,21 @@ int main(int argc, char **argv, char** envp) {
     } // For each program
     printf("\n");
 
+#ifdef DEMANDPAGING
+	free(programs);
+#else
     free(programs);
     close(fd);
+#endif
 
 
 
 
 
+
+
+	//TODO 
+	//exit(1);
 
     //  Set up the stack
 
@@ -537,7 +901,7 @@ int main(int argc, char **argv, char** envp) {
         void *topofthestack = stacklowest + stackbytesrequired  - 64 ; // 64 bytes is reserved for stack overflow
 
 
-        displayaddressspace();
+        //displayaddressspace();
         newsp= populatestack(topofthestack, argc, argv, envp); // return the current stack point ( pointing to argc )
 
         if (newsp == NULL) {
@@ -567,7 +931,12 @@ int main(int argc, char **argv, char** envp) {
 
 
 
+    //displayaddressspace();
     stackcheck(newsp,argc-1,&argv[1]);
+
+#ifdef DEMANDPAGING
+	PRINT_ASTABLE(&addressspaces);
+#endif
 
 
     //givecontrol(void *programentry, void *topofthestack) ;

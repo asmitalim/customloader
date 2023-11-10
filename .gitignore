@@ -4,4 +4,9 @@ hello
 toload
 *.orig
 apager
+dpager
 apager.ammi
+apager.dyn
+hello.dyn
+.vscode
+hello.static
