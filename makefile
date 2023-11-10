@@ -1,4 +1,4 @@
-all: apager  apager.ammi dpager hpager
+all: apager  apager.ammi dpager hpager h3pager
 	@echo "apager Built"
 	cd testsuit ; make
 	cd mallocfilter/src ; make
@@ -34,11 +34,19 @@ hpager: hpager.o stackutils.o pager.h
 	@#gcc -static -Wl,--verbose -o apager apager.o
 	gcc -static -Wl,--script=buntzlinkerfile -o hpager hpager.o stackutils.o
 
+h3pager: h3pager.o stackutils.o pager.h
+	@#gcc -static -Wl,-Ttext=0x8090000,--verbose -o apager apager.o
+	@#gcc -static -Wl,--verbose -o apager apager.o
+	gcc -static -Wl,--script=buntzlinkerfile -o h3pager h3pager.o stackutils.o
+
 dpager.o:	apager.c pager.h
 	gcc -DDEMANDPAGING -g -c -o dpager.o apager.c
 
 hpager.o:	apager.c pager.h
 	gcc -DDEMANDPAGING -DHYBRIDPAGING -g -c -o hpager.o apager.c
+
+h3pager.o:	apager.c pager.h
+	gcc -DTHREEPAGER -DDEMANDPAGING -DHYBRIDPAGING -g -c -o h3pager.o apager.c
 
 .PHONY: all clean runstatic codestyle
 
@@ -53,6 +61,7 @@ clean:
 	@rm -f apager.ammi
 	@rm -f dpager
 	@rm -f hpager
+	@rm -f h3pager
 	cd testsuit ; make clean
 	cd mallocfilter/src ; make clean
 
@@ -66,5 +75,6 @@ codestyle:
 
 run:
 	@make all
-	cd testsuit ; make run
+	cd testsuit ; make run 
+	cd testsuit ; make runmore
 	

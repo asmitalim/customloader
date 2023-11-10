@@ -506,6 +506,18 @@ void demandpager(int sig, siginfo_t *si, void *pagefaultcontext) {
 	if( entryidnext == entryid) {
 		allocatepage(additionaladdress,si,pagefaultcontext,PAGEHINT_TRYNEXT) ;
 	}
+
+#ifdef THREEPAGER
+	uint64_t thirdaddress = faultingaddress + 2*PAGE_SIZE ; 
+	entryidnext = getASEntryIndex(thirdaddress);
+
+	if( entryidnext == entryid) {
+		allocatepage(thirdaddress,si,pagefaultcontext,PAGEHINT_TRYNEXT) ;
+	}
+#endif
+
+
+
 #endif
 
 

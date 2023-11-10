@@ -132,6 +132,25 @@ runhpager:
 	@../hpager ./seqarray.static 5 
 	@../hpager ./seqarray.static 5 
 
+runh3pager:
+	@../h3pager ./hello.static hello
+	@../h3pager ./toload.static hello static
+	@../h3pager ./bigarrays.static 5000 -h
+	@../h3pager ./bigarrays.static 500 
+	@../h3pager ./bigarrays.static 50
+	@../h3pager ./bigarrays.static 5
+	@../h3pager ./bigarrays.static 5
+	@../h3pager ./bigarrays.static 5
+	@../h3pager ./bigarrays.static 5
+	@../h3pager ./bigarrays.static 5
+	@../h3pager ./bigarrays.static 5
+	@../h3pager ./seqarray.static 5 -h
+	@../h3pager ./seqarray.static 5 
+	@../h3pager ./seqarray.static 5 
+	@../h3pager ./seqarray.static 5 
+	@../h3pager ./seqarray.static 5 
+	@../h3pager ./seqarray.static 5 
+
 runxpager:
 	@./xpager ./hello.static hello
 	@./xpager ./toload.static hello static
@@ -152,6 +171,59 @@ runxpager:
 	@./xpager ./seqarray.static 5 
 
 
+runbigdata:
+	@echo "BIGARRAY BSS but LARGE ACCESS" >> results.log
+	@echo "APAGER" >> results.log
+	@../apager ./bigarrays.static 5 -h
+	@echo "DPAGER" >> results.log
+	@../dpager ./bigarrays.static 5
+	@echo "HPAGER" >> results.log
+	@../hpager ./bigarrays.static 5
+	@echo "3PAGER" >> results.log
+	@../h3pager ./bigarrays.static 5
+	@echo "XPAGER" >> results.log
+	@./xpager ./bigarrays.static 5
+
+runsmalldata:
+	@echo "BIG ARRAY BSS but SMALL access" >> results.log
+	@echo "APAGER" >> results.log
+	@../apager ./bigarrays.static 5000 -h
+	@echo "DPAGER" >> results.log
+	@../dpager ./bigarrays.static 5000
+	@echo "HPAGER" >> results.log
+	@../hpager ./bigarrays.static 5000
+	@echo "3PAGER" >> results.log
+	@../h3pager ./bigarrays.static 5000
+	@echo "XPAGER" >> results.log
+	@./xpager ./bigarrays.static 5000
+
+runseq:
+	@echo "SEQUENTIAL ARRAY" >> results.log
+	@echo "APAGER" >> results.log
+	@../apager ./seqarray.static 5000 -h
+	@echo "DPAGER" >> results.log
+	@../dpager ./seqarray.static 5000
+	@echo "HPAGER" >> results.log
+	@../hpager ./seqarray.static 5000
+	@echo "3PAGER" >> results.log
+	@../h3pager ./seqarray.static 5000
+	@echo "XPAGER" >> results.log
+	@./xpager ./seqarray.static 5000
+
+runcode:
+	@echo "small data and small code " >> results.log
+	@echo "APAGER" >> results.log
+	@../apager ./toload.static 5000 -h
+	@echo "DPAGER" >> results.log
+	@../dpager ./toload.static 5000 -h
+	@echo "HPAGER" >> results.log
+	@../hpager ./toload.static 5000 -h
+	@echo "3PAGER" >> results.log
+	@../h3pager ./toload.static 5000 -h
+	@echo "XPAGER" >> results.log
+	@./xpager ./toload.static 5000 -h
+
+
 clean:
 	echo "Cleaning testsuit directory"
 	@rm -f *.o
@@ -164,16 +236,27 @@ clean:
 
 run:
 	@echo "" > results.log
-	@echo "DPAGER" >> results.log
-	@make rundpager
-	@echo "" >> results.log
 	@echo "APAGER" >> results.log
 	@make runapager
+	@echo "" >> results.log
+	@echo "DPAGER" >> results.log
+	@make rundpager
 	@echo "" >> results.log
 	@echo "HPAGER" >> results.log
 	@make runhpager
 	@echo "" >> results.log
+	@echo "H3PAGER" >> results.log
+	@make runh3pager
+	@echo "" >> results.log
 	@echo "XPAGER" >> results.log
 	@make runxpager
 	@echo "" >> results.log
+
 	@cp results.log results`date +"-%Y%m%d-%H%M"`.log
+
+runmore:
+	make runbigdata 
+	make runsmalldata
+	make runseq
+	make runcode
+	@cp results.log resultsmore`date +"-%Y%m%d-%H%M"`.log
