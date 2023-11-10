@@ -161,9 +161,14 @@ run:
 	echo "" > results.log
 	echo "DPAGER" >> results.log
 	make rundpager
+	echo "" >> results.log
 	echo "APAGER" >> results.log
 	make runapager
+	echo "" >> results.log
 	echo "HPAGER" >> results.log
 	make runhpager
+	echo "" >> results.log
 	echo "XPAGER" >> results.log
 	make runxpager
+	echo "" >> results.log
+	cp results.log results`date +"-%Y%m%d-%H%M"`.log

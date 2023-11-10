@@ -24,7 +24,8 @@ int main(int argc, char **argv) {
 char *statusheader = "vmpeak,vmsize,vmhwm,vmdata,vmstack,vmexec,vmlibd,vmswap,totaltime,usertime,systemtime\n";
 char *statusformat = "%d,%d,%d,%d,%d,%d,%d,%d,%6.3lf,%6.3lf,%6.3lf\n" ;
 
-static char headerbuffer[2000] ;
+static char headerbuffer[1000] ;
+static char resultbuffer[1000] ;
 
 
 void initheaders(char *prefixheader) {
@@ -96,19 +97,19 @@ void instrumentstats(char *prefixstring, int headerflag) {
 		fputs(headerbuffer,fpresult);
 
     	sprintf(buffer,"%s,%s",prefixstring,statusformat);
-		sprintf(headerbuffer,buffer, 
+		sprintf(resultbuffer,buffer, 
 			vmpeak,vmsize,vmhwm,vmdata,vmstk,vmexe,vmlib,vmswap,
 			usec1+ssec1, usec1,ssec1);
-		fputs(headerbuffer,fpresult);
-		printf(headerbuffer);
+		fputs(resultbuffer,fpresult);
+		printf(resultbuffer);
 	}
 	else {
     	sprintf(buffer,"%s,%s",prefixstring,statusformat);
-		sprintf(headerbuffer,buffer, 
+		sprintf(resultbuffer,buffer, 
 			vmpeak,vmsize,vmhwm,vmdata,vmstk,vmexe,vmlib,vmswap,
 			 usec1+ssec1, usec1,ssec1);
-		fputs(headerbuffer,fpresult);
-		printf(headerbuffer);
+		fputs(resultbuffer,fpresult);
+		printf(resultbuffer);
 	}
 
 	fclose(fpresult);

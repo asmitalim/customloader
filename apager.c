@@ -811,7 +811,8 @@ int main(int argc, char **argv, char** envp) {
 			uint64_t pageentryoffset ;
 			*/
 
-#ifdef HYBRIDPAGING
+#ifndef HYBRIDPAGING
+			// only one page for dpager , do not do fullmmap
 			if(rightprogram) {
 				pageentryoffset = pageentrystart - filemapstart + filemapoffset ;
 
@@ -833,7 +834,7 @@ int main(int argc, char **argv, char** envp) {
 #else
 
 			// HYBRID Mapping
-			// leave only allocate only BSS
+			// preloaded map for hpager
             printf("filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
                    filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
 
@@ -851,7 +852,7 @@ int main(int argc, char **argv, char** envp) {
 #endif
 
 #else
-			// PRELOADED MAP
+			// PRELOADED MAP for apager
             printf("filemapped mmap( start address=%lx end address=%lx mapsize=%lx prot=%x flags=%x fd=%d offset=%lx) \n",
                    filemapstart, filemapend, filemapsize, fileprot, fileflags, fd, filemapoffset);
 
